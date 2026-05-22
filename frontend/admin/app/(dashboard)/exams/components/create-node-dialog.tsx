@@ -52,8 +52,9 @@ export function CreateNodeDialog({
     setSaving(true);
     try {
       const autoCode = code || name.trim().replace(/\s+/g, "_").toLowerCase();
+      let res: Response;
       if (type === "exam") {
-        await authFetch("/api/v1/admin/exams", {
+        res = await authFetch("/api/v1/admin/exams", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -62,7 +63,7 @@ export function CreateNodeDialog({
           body: JSON.stringify({ code: autoCode, name: name.trim() }),
         });
       } else if (type === "subject") {
-        await authFetch("/api/v1/admin/subjects", {
+        res = await authFetch("/api/v1/admin/subjects", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -75,8 +76,8 @@ export function CreateNodeDialog({
             sort_order: 0,
           }),
         });
-      } else if (type === "chapter") {
-        await authFetch("/api/v1/admin/chapters", {
+      } else {
+        res = await authFetch("/api/v1/admin/chapters", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -89,6 +90,10 @@ export function CreateNodeDialog({
             sort_order: 0,
           }),
         });
+      }
+      if (!res.ok) {
+        toast.error("创建失败，请检查输入后重试");
+        return;
       }
       setCode("");
       setName("");

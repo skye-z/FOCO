@@ -1024,22 +1024,27 @@ func batchUpsertQuestions(sess *xorm.Session, items []ContentPackageQuestion) (i
 			}
 		}
 
-		var usb strings.Builder
-		usb.WriteString(`UPDATE questions SET current_published_version_id = v.id, status = v.status, updated_at = v.updated_at FROM (VALUES `)
-		uargs := make([]any, 0, len(batch)*4)
-		for j, item := range batch {
-			if j > 0 {
-				usb.WriteString(", ")
-			}
-			usb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d)", j*4+1, j*4+2, j*4+3, j*4+4))
-			uargs = append(uargs, *item.CurrentPublishedVersionId, item.Id, item.Status, item.UpdatedAt)
-		}
-		usb.WriteString(`) AS v(id, qid, status, updated_at) WHERE questions.id = v.qid::uuid`)
-		if _, err := execBulk(sess, usb.String(), uargs); err != nil {
+		sql, uargs := buildQuestionPublishSyncUpdateSQL(batch)
+		if _, err := execBulk(sess, sql, uargs); err != nil {
 			return 0, err
 		}
 	}
 	return total, nil
+}
+
+func buildQuestionPublishSyncUpdateSQL(batch []ContentPackageQuestion) (string, []any) {
+	var usb strings.Builder
+	usb.WriteString(`UPDATE questions SET current_published_version_id = v.id, status = v.status, updated_at = v.updated_at FROM (VALUES `)
+	uargs := make([]any, 0, len(batch)*4)
+	for j, item := range batch {
+		if j > 0 {
+			usb.WriteString(", ")
+		}
+		usb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d::timestamptz)", j*4+1, j*4+2, j*4+3, j*4+4))
+		uargs = append(uargs, *item.CurrentPublishedVersionId, item.Id, item.Status, item.UpdatedAt)
+	}
+	usb.WriteString(`) AS v(id, qid, status, updated_at) WHERE questions.id = v.qid::uuid`)
+	return usb.String(), uargs
 }
 
 func batchUpsertInteractiveUnits(sess *xorm.Session, items []ContentPackageInteractiveUnit) (int, int, error) {
@@ -1279,16 +1284,25 @@ func (r *XormRepository) DeleteChapter(ctx context.Context, chapterId string) er
 func (r *XormRepository) DeleteQuestion(ctx context.Context, questionId string) error {
 	sess := r.engine.NewSession().Context(ctx)
 	defer sess.Close()
+	if err := sess.Begin(); err != nil {
+		return err
+	}
 	_, err := sess.Exec("DELETE FROM question_version_knowledge_points WHERE question_version_id IN (SELECT id FROM question_versions WHERE question_id = ?::uuid)", questionId)
 	if err != nil {
+		_ = sess.Rollback()
 		return err
 	}
 	_, err = sess.Exec("DELETE FROM question_versions WHERE question_id = ?::uuid", questionId)
 	if err != nil {
+		_ = sess.Rollback()
 		return err
 	}
 	_, err = sess.Exec("DELETE FROM questions WHERE id = ?::uuid", questionId)
-	return err
+	if err != nil {
+		_ = sess.Rollback()
+		return err
+	}
+	return sess.Commit()
 }
 
 func ptrToEmpty(s *string) string {

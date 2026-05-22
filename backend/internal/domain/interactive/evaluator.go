@@ -16,12 +16,16 @@ func EvaluateStep(step StepSchema, submission map[string]any) EvaluationResult {
 		return EvaluationResult{IsCorrect: compareStringSlice(step.EvaluationConfig["correct_order"], submission["ordered_ids"])}
 	case "highlight_marking":
 		if highlights, ok := step.EvaluationConfig["expected_highlights"]; ok {
-			return EvaluationResult{IsCorrect: compareStringSlice(highlights, submission["marked_ids"])}
+			markedTexts := submission["marked_texts"]
+			if markedTexts == nil {
+				markedTexts = submission["marked_ids"]
+			}
+			return EvaluationResult{IsCorrect: compareStringList(highlights, markedTexts, true, normalizeAnswerText)}
 		}
-		return EvaluationResult{IsCorrect: compareStringSlice(step.EvaluationConfig["correct_marked_ids"], submission["marked_ids"])}
+		return EvaluationResult{IsCorrect: compareStringList(step.EvaluationConfig["correct_marked_ids"], submission["marked_ids"], true, nil)}
 	case "formula_builder":
 		if correctFormula, ok := step.EvaluationConfig["correct_formula"].(string); ok && correctFormula != "" {
-			return EvaluationResult{IsCorrect: compareFormula(step, submission["slot_values"], correctFormula)}
+			return EvaluationResult{IsCorrect: compareFormula(step, submission["slot_values"], submission["formula_text"], correctFormula)}
 		}
 		return EvaluationResult{IsCorrect: compareMap(step.EvaluationConfig["required_slots"], submission["slot_values"])}
 	case "parameter_lab":
@@ -38,27 +42,34 @@ func EvaluateStep(step StepSchema, submission map[string]any) EvaluationResult {
 	case "choice_cloze":
 		mode, _ := step.EvaluationConfig["mode"].(string)
 		correctSelections, hasCorrectSelections := step.EvaluationConfig["correct_selections"]
+		orderMatters := boolValue(step.EvaluationConfig["order_matters"], mode == "fill_blank")
 		switch mode {
 		case "multi_choice":
-			if hasCorrectSelections {
-				return EvaluationResult{IsCorrect: compareStringSlice(correctSelections, submission["selected_option_ids"])}
+			if optionIDs := step.EvaluationConfig["correct_option_ids"]; optionIDs != nil {
+				return EvaluationResult{IsCorrect: compareStringList(optionIDs, submission["selected_option_ids"], orderMatters, nil)}
 			}
-			return EvaluationResult{IsCorrect: compareStringSlice(step.EvaluationConfig["correct_option_ids"], submission["selected_option_ids"])}
+			if hasCorrectSelections {
+				return EvaluationResult{IsCorrect: compareStringList(correctSelections, submission["selected_option_ids"], orderMatters, normalizeAnswerText)}
+			}
+			return EvaluationResult{IsCorrect: false}
 		case "fill_blank":
 			if hasCorrectSelections {
-				return EvaluationResult{IsCorrect: compareStringSlice(correctSelections, submission["blank_values"])}
+				return EvaluationResult{IsCorrect: compareStringList(correctSelections, submission["blank_values"], orderMatters, normalizeAnswerText)}
 			}
 			return EvaluationResult{IsCorrect: compareMap(step.EvaluationConfig["correct_blanks"], submission["blank_values"])}
 		default:
+			if correctOptionID := step.EvaluationConfig["correct_option_id"]; correctOptionID != nil {
+				return EvaluationResult{IsCorrect: compareStringValue(correctOptionID, submission["selected_option_id"])}
+			}
 			if hasCorrectSelections {
 				if correctSelectionList, ok := anyToStringSlice(correctSelections); ok {
 					if len(correctSelectionList) == 1 {
-						return EvaluationResult{IsCorrect: compareStringValue(correctSelectionList[0], submission["selected_option_id"])}
+						return EvaluationResult{IsCorrect: compareStringValueNormalized(correctSelectionList[0], submission["selected_option_id"], normalizeAnswerText)}
 					}
-					return EvaluationResult{IsCorrect: compareStringSlice(correctSelectionList, submission["selected_option_ids"])}
+					return EvaluationResult{IsCorrect: compareStringList(correctSelectionList, submission["selected_option_ids"], orderMatters, normalizeAnswerText)}
 				}
 			}
-			return EvaluationResult{IsCorrect: compareStringValue(step.EvaluationConfig["correct_option_id"], submission["selected_option_id"])}
+			return EvaluationResult{IsCorrect: false}
 		}
 	default:
 		return EvaluationResult{IsCorrect: false}
@@ -95,6 +106,10 @@ func compareTargetRange(targetRange any, state any) bool {
 }
 
 func compareStringSlice(left any, right any) bool {
+	return compareStringList(left, right, true, nil)
+}
+
+func compareStringList(left any, right any, orderMatters bool, normalizer func(string) string) bool {
 	ls, ok := anyToStringSlice(left)
 	if !ok {
 		return false
@@ -106,8 +121,36 @@ func compareStringSlice(left any, right any) bool {
 	if len(ls) != len(rs) {
 		return false
 	}
-	for i := range ls {
-		if ls[i] != rs[i] {
+
+	normalize := func(value string) string {
+		if normalizer == nil {
+			return value
+		}
+		return normalizer(value)
+	}
+
+	if orderMatters {
+		for i := range ls {
+			if normalize(ls[i]) != normalize(rs[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	counts := make(map[string]int, len(ls))
+	for _, item := range ls {
+		counts[normalize(item)]++
+	}
+	for _, item := range rs {
+		key := normalize(item)
+		if counts[key] == 0 {
+			return false
+		}
+		counts[key]--
+	}
+	for _, remaining := range counts {
+		if remaining != 0 {
 			return false
 		}
 	}
@@ -155,6 +198,21 @@ func compareStringValue(left any, right any) bool {
 		return false
 	}
 	return ls == rs
+}
+
+func compareStringValueNormalized(left any, right any, normalizer func(string) string) bool {
+	ls, ok := left.(string)
+	if !ok {
+		return false
+	}
+	rs, ok := right.(string)
+	if !ok {
+		return false
+	}
+	if normalizer == nil {
+		return ls == rs
+	}
+	return normalizer(ls) == normalizer(rs)
 }
 
 func compareFlexibleText(left string, right any) bool {
@@ -272,7 +330,10 @@ func anyToFloat(v any) (float64, bool) {
 	}
 }
 
-func compareFormula(step StepSchema, slotValues any, correctFormula string) bool {
+func compareFormula(step StepSchema, slotValues any, formulaText any, correctFormula string) bool {
+	if submittedFormula, ok := formulaText.(string); ok && strings.TrimSpace(submittedFormula) != "" {
+		return normalizeFormula(submittedFormula) == normalizeFormula(correctFormula)
+	}
 	submitted, ok := anyToMap(slotValues)
 	if !ok {
 		return false
@@ -298,6 +359,14 @@ func compareFormula(step StepSchema, slotValues any, correctFormula string) bool
 		parts = append(parts, strings.TrimSpace(stringValue(value)))
 	}
 	return normalizeFormula(strings.Join(parts, "")) == normalizeFormula(correctFormula)
+}
+
+func boolValue(value any, fallback bool) bool {
+	boolean, ok := value.(bool)
+	if !ok {
+		return fallback
+	}
+	return boolean
 }
 
 func slotKey(rawSlot any, index int) string {

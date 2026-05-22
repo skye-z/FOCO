@@ -24,7 +24,6 @@ export default function LabsPage() {
   const router = useRouter()
   const [units, setUnits] = React.useState<UnitSummary[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [rawJson, setRawJson] = React.useState<string>("")
 
   React.useEffect(() => {
     const token = readBrowserAccessToken()
@@ -38,11 +37,9 @@ export default function LabsPage() {
       cache: "no-store",
     })
       .then(async (res) => {
-        const text = await res.text()
-        setRawJson(text)
         if (res.ok) {
           try {
-            const p = JSON.parse(text)
+            const p = await res.json()
             setUnits(p.data ?? [])
           } catch {
             setUnits([])
@@ -69,15 +66,6 @@ export default function LabsPage() {
           通过交互式步骤深入理解核心概念
         </p>
       </div>
-
-      <details className="rounded-lg border bg-muted/30">
-        <summary className="cursor-pointer px-3 py-2 text-xs text-muted-foreground">
-          DEBUG: API response ({units.length} units)
-        </summary>
-        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all p-3 text-[10px]">
-          {rawJson || "(empty)"}
-        </pre>
-      </details>
 
       {units.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-muted-foreground">

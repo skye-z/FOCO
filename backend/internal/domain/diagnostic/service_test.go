@@ -17,6 +17,13 @@ func (r *repoStub) FindLatestAttempt(context.Context, string, string) (*Attempt,
 	return r.existingAttempt, nil
 }
 
+func (r *repoStub) FindAttemptByID(_ context.Context, _, attemptID string) (*Attempt, error) {
+	if r.existingAttempt != nil && r.existingAttempt.ID == attemptID {
+		return r.existingAttempt, nil
+	}
+	return nil, nil
+}
+
 func (r *repoStub) CreateAttempt(_ context.Context, attempt *Attempt) error {
 	copy := *attempt
 	r.createdAttempt = &copy

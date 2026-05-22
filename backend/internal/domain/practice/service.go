@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	ErrActiveEnrollmentRequired = errors.New("active enrollment required")
-	ErrDiagnosticRequired       = errors.New("diagnostic required before intelligent practice")
-	ErrNoPracticeQuestions      = errors.New("no practice questions available for the selected scope")
-	ErrPracticeSessionNotFound  = errors.New("practice session not found")
-	ErrPracticeItemNotFound     = errors.New("practice item not found")
+	ErrActiveEnrollmentRequired     = errors.New("active enrollment required")
+	ErrDiagnosticRequired           = errors.New("diagnostic required before intelligent practice")
+	ErrNoPracticeQuestions          = errors.New("no practice questions available for the selected scope")
+	ErrPracticeSessionNotFound      = errors.New("practice session not found")
+	ErrPracticeItemNotFound         = errors.New("practice item not found")
+	ErrPracticeItemAlreadySubmitted = errors.New("practice item already submitted")
 )
 
 type Repository interface {
@@ -309,13 +310,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, input SubmitAnswerInput) (*S
 	}
 
 	if record.SubmittedAt != nil && record.IsCorrect != nil {
-		return &SubmitResult{
-			IsCorrect:       *record.IsCorrect,
-			CorrectAnswer:   correctAnswerPayload(record.QuestionType, record.CorrectLabels),
-			Explanation:     record.Explanation,
-			KnowledgePoints: knowledgePoints,
-			XpEarned:        0,
-		}, nil
+		return nil, ErrPracticeItemAlreadySubmitted
 	}
 
 	isCorrect := slices.Equal(selectedAnswers, normalizeLabels(record.CorrectLabels))

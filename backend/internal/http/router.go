@@ -30,7 +30,8 @@ func NewRouter(deps Dependencies) http.Handler {
 
 	seedHandler := handler.NewSeedHandler(deps.SeedService)
 	adminSettingsHandler := handler.NewAdminSettingsHandler(deps.AdminSettingsService)
-	mux.HandleFunc("POST /api/v1/seed/admin", seedHandler.SeedDefaultAdmin)
+	withAuth := middleware.AuthMiddleware(deps.TokenVerifier)
+	mux.Handle("POST /api/v1/seed/admin", withAuth(http.HandlerFunc(seedHandler.SeedDefaultAdmin)))
 	mux.HandleFunc("GET /api/v1/public/settings", adminSettingsHandler.GetPublic)
 
 	learnerIdentityHandler := handler.NewLearnerIdentityHandler(deps.AccountService)
@@ -44,7 +45,6 @@ func NewRouter(deps Dependencies) http.Handler {
 	adminUsersHandler := handler.NewAdminUsersHandler(deps.AdminUserService)
 	adminContentHandler := handler.NewAdminContentHandler(deps.ContentService)
 	adminInteractiveHandler := handler.NewAdminInteractiveHandler(deps.InteractiveService)
-	withAuth := middleware.AuthMiddleware(deps.TokenVerifier)
 
 	mux.Handle("GET /api/v1/me", withAuth(http.HandlerFunc(learnerIdentityHandler.Me)))
 	mux.Handle("POST /api/v1/learner/bootstrap", withAuth(http.HandlerFunc(learnerIdentityHandler.Bootstrap)))
@@ -110,7 +110,7 @@ func NewRouter(deps Dependencies) http.Handler {
 	mux.Handle("POST /api/v1/admin/interactive-unit-versions/{versionId}/publish", withAuth(http.HandlerFunc(adminInteractiveHandler.PublishVersion)))
 	mux.Handle("DELETE /api/v1/admin/interactive-units/{unitId}", withAuth(http.HandlerFunc(adminInteractiveHandler.DeleteUnit)))
 
-	mux.HandleFunc("POST /api/v1/seed/chinese", deps.SeedChinese)
+	mux.Handle("POST /api/v1/seed/chinese", withAuth(deps.SeedChinese))
 
 	return middleware.SecurityHeadersMiddleware(middleware.CORSMiddleware(middleware.RateLimitMiddleware(mux)))
 }

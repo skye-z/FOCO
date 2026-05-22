@@ -151,7 +151,7 @@ export default function ExamsPage() {
     })
       .then((r) => r.json())
       .then((p) => setTree(p.data ?? []))
-      .catch(() => {});
+      .catch((e) => { console.error("API error:", e) });
   }
 
   function refreshQuestions() {
@@ -176,7 +176,8 @@ export default function ExamsPage() {
         setQuestions(p.data ?? []);
         setQuestionsLoading(false);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error("API error:", e);
         setQuestions([]);
         setQuestionsLoading(false);
       });
@@ -199,7 +200,8 @@ export default function ExamsPage() {
         setInteractiveUnits(p.data ?? []);
         setInteractiveLoading(false);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error("API error:", e);
         setInteractiveUnits([]);
         setInteractiveLoading(false);
       });

@@ -3,6 +3,7 @@ package diagnostic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -48,6 +49,56 @@ func (r *XormRepository) FindLatestAttempt(ctx context.Context, userID, examID s
 		Summary     string     `xorm:"summary"`
 	}
 	has, err := r.engine.Context(ctx).SQL(query, args...).Get(&row)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, nil
+	}
+
+	attempt := &Attempt{
+		ID:          row.ID,
+		UserID:      row.UserID,
+		ExamID:      row.ExamID,
+		TriggerType: row.TriggerType,
+		Status:      row.Status,
+		StartedAt:   row.StartedAt,
+		CompletedAt: row.CompletedAt,
+	}
+
+	var summary struct {
+		Items  json.RawMessage `json:"items"`
+		Result *ProfileSummary `json:"result"`
+	}
+	_ = json.Unmarshal([]byte(row.Summary), &summary)
+	attempt.Items = unmarshalItems(summary.Items)
+	attempt.Result = summary.Result
+	return attempt, nil
+}
+
+func (r *XormRepository) FindAttemptByID(ctx context.Context, userID, attemptID string) (*Attempt, error) {
+	var row struct {
+		ID          string     `xorm:"id"`
+		UserID      string     `xorm:"user_id"`
+		ExamID      string     `xorm:"exam_id"`
+		TriggerType string     `xorm:"trigger_type"`
+		Status      string     `xorm:"status"`
+		StartedAt   *time.Time `xorm:"started_at"`
+		CompletedAt *time.Time `xorm:"completed_at"`
+		Summary     string     `xorm:"summary"`
+	}
+	has, err := r.engine.Context(ctx).SQL(`
+		select id::text as id,
+		       user_id,
+		       exam_id::text as exam_id,
+		       trigger_type,
+		       status,
+		       started_at,
+		       completed_at,
+		       coalesce(summary::text, '{}') as summary
+		from diagnostic_attempts
+		where id = ?::uuid and user_id = ?::uuid
+	`, attemptID, userID).Get(&row)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +175,7 @@ func (r *XormRepository) ListDiagnosticQuestions(ctx context.Context, examID str
 		KnowledgePoints   string `xorm:"knowledge_points"`
 		SortOrder         int    `xorm:"sort_order"`
 	}
-	err := r.engine.Context(ctx).SQL(`
+	err := r.engine.Context(ctx).SQL(fmt.Sprintf(`
 		select qv.id::text as question_version_id,
 		       s.id::text as subject_id,
 		       s.name as subject_name,
@@ -150,7 +201,8 @@ func (r *XormRepository) ListDiagnosticQuestions(ctx context.Context, examID str
 		  and q.status = 'published'
 		group by qv.id, s.id, s.name, c.id, c.name, qv.question_type, qv.difficulty, qv.stem, qv.options, qv.correct_answer, s.sort_order
 		order by s.sort_order asc, c.sort_order asc, qv.difficulty asc, random()
-	`, examID).Find(&rows)
+		limit %d
+	`, limit), examID).Find(&rows)
 	if err != nil {
 		return nil, err
 	}

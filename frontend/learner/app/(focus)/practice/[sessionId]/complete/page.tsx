@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { authFetch, readBrowserAccessToken } from "@/lib/auth-session"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { AlertCircle, BookX, Coins, RotateCcw, Star } from "lucide-react"
+import { AlertCircle, BookX, Coins, Loader2, RotateCcw, Star } from "lucide-react"
 
 const API_BASE = "/api/v1"
 
@@ -104,7 +104,8 @@ export default function PracticeCompletePage({
   params: Promise<{ sessionId: string }>
 }) {
   const router = useRouter()
-  const [summary, setSummary] = useState<SessionSummary>(DEMO_SUMMARY)
+  const [summary, setSummary] = useState<SessionSummary | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -121,10 +122,32 @@ export default function PracticeCompletePage({
           const payload = await res.json()
           setSummary(payload.data ?? payload)
         }
-      } catch {}
+      } catch {
+        setError(true)
+      }
     }
     load()
   }, [params])
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <AlertCircle className="size-8" />
+          <p>加载练习结果失败</p>
+          <Button variant="outline" onClick={() => router.push("/home")}>返回首页</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!summary) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-[var(--secondary)]" />
+      </div>
+    )
+  }
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12">

@@ -3,6 +3,7 @@ package practice
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -244,12 +245,15 @@ func (r *XormRepository) GetSession(ctx context.Context, userID, sessionID strin
 	}
 
 	var rows []struct {
-		ItemID            string `xorm:"item_id"`
-		QuestionVersionID string `xorm:"question_version_id"`
-		QuestionType      string `xorm:"question_type"`
-		Score             int    `xorm:"score"`
-		Stem              string `xorm:"stem"`
-		Options           string `xorm:"options"`
+		ItemID            string  `xorm:"item_id"`
+		QuestionVersionID string  `xorm:"question_version_id"`
+		QuestionType      string  `xorm:"question_type"`
+		Score             int     `xorm:"score"`
+		Stem              string  `xorm:"stem"`
+		Options           string  `xorm:"options"`
+		SubmittedAt       *string `xorm:"submitted_at"`
+		IsCorrect         *bool   `xorm:"is_correct"`
+		UserAnswer        string  `xorm:"user_answer"`
 	}
 	if err := r.engine.Context(ctx).SQL(`
 		select psi.id::text as item_id,
@@ -257,7 +261,10 @@ func (r *XormRepository) GetSession(ctx context.Context, userID, sessionID strin
 		       psi.question_type as question_type,
 		       psi.score as score,
 		       psi.stem as stem,
-		       psi.options::text as options
+		       psi.options::text as options,
+		       psi.submitted_at::text as submitted_at,
+		       psi.is_correct as is_correct,
+		       coalesce(psi.user_answer::text, '') as user_answer
 		from practice_session_items psi
 		join practice_sessions ps on ps.id = psi.session_id
 		where ps.id = ?::uuid and ps.user_id = ?::uuid
@@ -268,7 +275,7 @@ func (r *XormRepository) GetSession(ctx context.Context, userID, sessionID strin
 
 	items := make([]PracticeSessionItemView, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, PracticeSessionItemView{
+		item := PracticeSessionItemView{
 			ItemID:            row.ItemID,
 			QuestionVersionID: row.QuestionVersionID,
 			QuestionType:      row.QuestionType,
@@ -277,7 +284,13 @@ func (r *XormRepository) GetSession(ctx context.Context, userID, sessionID strin
 				Stem:    row.Stem,
 				Options: decodeOptions(row.Options),
 			},
-		})
+			Submitted: row.SubmittedAt != nil,
+			IsCorrect: row.IsCorrect,
+		}
+		if row.UserAnswer != "" {
+			_ = json.Unmarshal([]byte(row.UserAnswer), &item.UserAnswer)
+		}
+		items = append(items, item)
 	}
 
 	return &PracticeSessionView{
@@ -362,7 +375,7 @@ func (r *XormRepository) SaveSubmission(ctx context.Context, sessionID, itemID s
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		_ = sess.Rollback()
-		return nil
+		return fmt.Errorf("practice item already submitted")
 	}
 
 	correctDelta := 0
@@ -384,6 +397,18 @@ func (r *XormRepository) SaveSubmission(ctx context.Context, sessionID, itemID s
 	if err != nil {
 		_ = sess.Rollback()
 		return err
+	}
+
+	if coinsEarned > 0 {
+		_, err = sess.Exec(`
+			insert into wallets (id, user_id, coins_balance, created_at, updated_at)
+			values (gen_random_uuid(), (select user_id from practice_sessions where id = ?::uuid), ?, now(), now())
+			on conflict (user_id) do update set coins_balance = wallets.coins_balance + ?, updated_at = now()
+		`, sessionID, coinsEarned, coinsEarned)
+		if err != nil {
+			_ = sess.Rollback()
+			return err
+		}
 	}
 
 	return sess.Commit()

@@ -118,6 +118,17 @@ export default function DiagnosticPage() {
         const json = (await response.json()) as { data?: DiagnosticPayload }
         if (!cancelled) {
           setPayload(json.data ?? null)
+          if (json.data?.attempt_id) {
+            try {
+              const saved = window.localStorage.getItem(`foco.diagnostic.${json.data.attempt_id}`)
+              if (saved) {
+                const parsed = JSON.parse(saved) as Record<string, string[]>
+                if (typeof parsed === "object" && parsed !== null) {
+                  setAnswers(parsed)
+                }
+              }
+            } catch {}
+          }
         }
       } catch {
         if (!cancelled) {
@@ -135,6 +146,14 @@ export default function DiagnosticPage() {
       cancelled = true
     }
   }, [examId])
+
+  useEffect(() => {
+    if (!payload?.attempt_id) return
+    if (Object.keys(answers).length === 0) return
+    try {
+      window.localStorage.setItem(`foco.diagnostic.${payload.attempt_id}`, JSON.stringify(answers))
+    } catch {}
+  }, [answers, payload?.attempt_id])
 
   const completionRatio = useMemo(() => {
     if (!payload?.items?.length) return 0
@@ -196,6 +215,9 @@ export default function DiagnosticPage() {
       })
       if (!response.ok) throw new Error("submit failed")
       const json = (await response.json()) as { data?: DiagnosticSummary }
+      if (payload.attempt_id) {
+        try { window.localStorage.removeItem(`foco.diagnostic.${payload.attempt_id}`) } catch {}
+      }
       setPayload({ status: "completed", summary: json.data })
     } catch {
       setError("提交测验失败，请稍后重试。")

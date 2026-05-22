@@ -23,6 +23,9 @@ func NewAdminStatsHandler(statsService StatsService) *AdminStatsHandler {
 }
 
 func (h *AdminStatsHandler) Overview(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.statsService == nil {
 		http.Error(w, "stats service unavailable", http.StatusInternalServerError)
 		return

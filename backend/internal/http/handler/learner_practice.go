@@ -151,6 +151,9 @@ func (h *LearnerPracticeHandler) SubmitAnswer(w http.ResponseWriter, r *http.Req
 		if errors.Is(err, practice.ErrPracticeItemNotFound) {
 			status = http.StatusNotFound
 		}
+		if errors.Is(err, practice.ErrPracticeItemAlreadySubmitted) {
+			status = http.StatusConflict
+		}
 		writeJSON(w, status, map[string]any{
 			"error": err.Error(),
 			"meta":  map[string]any{},

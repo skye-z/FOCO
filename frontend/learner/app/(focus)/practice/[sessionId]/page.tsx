@@ -40,6 +40,9 @@ type PracticeItem = {
   question_type: "single_choice" | "multiple_choice" | "judgment"
   score: number
   content: QuestionContent
+  submitted: boolean
+  is_correct?: boolean
+  user_answer?: string[]
 }
 
 type PracticeSession = {
@@ -119,13 +122,33 @@ export default function PracticeSessionPage() {
         const data: PracticeSession = json.data ?? json
         if (!cancelled) {
           setSession(data)
+          let firstUnanswered = 0
           setQuestionStates(
-            data.items.map(() => ({
-              selectedAnswers: [],
-              submitted: false,
-              result: null,
-            }))
+            data.items.map((item, idx) => {
+              if (item.submitted) {
+                if (firstUnanswered === idx) firstUnanswered = idx + 1
+                return {
+                  selectedAnswers: item.user_answer ?? [],
+                  submitted: true,
+                  result: item.is_correct != null
+                    ? {
+                        is_correct: item.is_correct,
+                        correct_answer: [],
+                        explanation: "",
+                        knowledge_points: [],
+                        xp_earned: 0,
+                      }
+                    : null,
+                }
+              }
+              return {
+                selectedAnswers: [],
+                submitted: false,
+                result: null,
+              }
+            })
           )
+          setCurrentIndex(firstUnanswered < data.items.length ? firstUnanswered : data.items.length - 1)
         }
       } catch {
         if (!cancelled) setError("无法加载练习会话，请稍后重试")
@@ -236,6 +259,19 @@ export default function PracticeSessionPage() {
         }
       )
 
+      if (res.status === 409) {
+        toast.error("该题目已作答")
+        setQuestionStates((prev) => {
+          const next = [...prev]
+          next[currentIndex] = {
+            ...next[currentIndex],
+            submitted: true,
+            result: null,
+          }
+          return next
+        })
+        return
+      }
       if (!res.ok) throw new Error("Submit failed")
       const json = await res.json()
       const result: SubmitResult = json.data ?? json

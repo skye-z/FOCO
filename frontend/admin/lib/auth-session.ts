@@ -81,6 +81,8 @@ function setBrowserCookie(name: string, value: string, maxAgeSeconds: number) {
   document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`
 }
 
+let refreshPromise: Promise<StoredAuthSession | null> | null = null
+
 export function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   return fetch(input, init).then(async (res) => {
     if (res.status !== 401) return res
@@ -101,32 +103,40 @@ export function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise
       return res
     }
 
-    try {
-      const refreshRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
-        method: "POST",
-        headers: { apikey: publishableKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: session.refreshToken }),
-      })
-      if (!refreshRes.ok) {
-        clearStoredSession()
-        window.location.href = "/"
-        return res
-      }
-      const payload = await refreshRes.json()
-      const newSession: StoredAuthSession = {
-        accessToken: payload.access_token,
-        refreshToken: payload.refresh_token ?? session.refreshToken,
-        expiresAt: payload.expires_at,
-        user: payload.user ? { id: payload.user.id, email: payload.user.email } : session.user,
-      }
-      writeStoredSession(newSession)
+    if (!refreshPromise) {
+      refreshPromise = (async () => {
+        try {
+          const refreshRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+            method: "POST",
+            headers: { apikey: publishableKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: session!.refreshToken }),
+          })
+          if (!refreshRes.ok) return null
+          const payload = await refreshRes.json()
+          const newSession: StoredAuthSession = {
+            accessToken: payload.access_token,
+            refreshToken: payload.refresh_token ?? session!.refreshToken,
+            expiresAt: payload.expires_at,
+            user: payload.user ? { id: payload.user.id, email: payload.user.email } : session!.user,
+          }
+          writeStoredSession(newSession)
+          return newSession
+        } catch {
+          return null
+        } finally {
+          refreshPromise = null
+        }
+      })()
+    }
 
-      const retryInit: RequestInit = { ...init, headers: { ...init?.headers, Authorization: `Bearer ${newSession.accessToken}` } }
-      return fetch(input, retryInit)
-    } catch {
+    const newSession = await refreshPromise
+    if (!newSession) {
       clearStoredSession()
       window.location.href = "/"
       return res
     }
+
+    const retryInit: RequestInit = { ...init, headers: { ...init?.headers, Authorization: `Bearer ${newSession.accessToken}` } }
+    return fetch(input, retryInit)
   })
 }

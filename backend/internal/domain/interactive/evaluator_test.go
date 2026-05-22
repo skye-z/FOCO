@@ -149,3 +149,51 @@ func TestEvaluateChoiceClozeFillBlankStep(t *testing.T) {
 		t.Fatalf("expected fill blank choice/cloze step to be correct")
 	}
 }
+
+func TestEvaluateHighlightMarkingStepUsesMarkedTextsForTextBasedConfig(t *testing.T) {
+	step := StepSchema{
+		WidgetType: "highlight_marking",
+		EvaluationConfig: map[string]any{
+			"expected_highlights": []string{"接受了目标公司提供的免费豪华酒店住宿", "未在报告中披露此信息"},
+		},
+	}
+	result := EvaluateStep(step, map[string]any{
+		"marked_ids":   []string{"char-13", "char-29"},
+		"marked_texts": []string{"接受了目标公司提供的免费豪华酒店住宿", "未在报告中披露此信息"},
+	})
+	if !result.IsCorrect {
+		t.Fatalf("expected highlight marking step to accept marked_texts for text-based config")
+	}
+}
+
+func TestEvaluateFormulaBuilderStepAcceptsDirectFormulaText(t *testing.T) {
+	step := StepSchema{
+		WidgetType: "formula_builder",
+		EvaluationConfig: map[string]any{
+			"correct_formula": "(1+r/m)^n-1",
+		},
+	}
+	result := EvaluateStep(step, map[string]any{
+		"formula_text": "(1+r/m)^n - 1",
+	})
+	if !result.IsCorrect {
+		t.Fatalf("expected formula builder step to accept direct formula text")
+	}
+}
+
+func TestEvaluateChoiceClozeCorrectSelectionsIgnoreOrderWhenOrderMattersIsFalse(t *testing.T) {
+	step := StepSchema{
+		WidgetType: "choice_cloze",
+		EvaluationConfig: map[string]any{
+			"mode":               "multi_choice",
+			"correct_selections": []string{"成本", "可变现净值"},
+			"order_matters":      false,
+		},
+	}
+	result := EvaluateStep(step, map[string]any{
+		"selected_option_ids": []string{"可变现净值", "成本"},
+	})
+	if !result.IsCorrect {
+		t.Fatalf("expected unordered correct selections to be accepted when order_matters=false")
+	}
+}

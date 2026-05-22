@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"foco/backend/api/internal/domain/diagnostic"
@@ -68,11 +70,19 @@ func (h *LearnerDiagnosticHandler) Restart(w http.ResponseWriter, r *http.Reques
 
 	payload, err := h.service.Restart(r.Context(), claims.UserID, body.ExamID, diagnostic.TriggerTypeManualRestart, time.Now().UTC())
 	if err != nil {
+		if strings.Contains(err.Error(), "already in progress") {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"data":  nil,
+				"meta":  map[string]any{},
+				"error": err.Error(),
+			})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	writeJSON(w, http.StatusCreated, map[string]any{
 		"data":  payload,
 		"meta":  map[string]any{},
 		"error": nil,
@@ -103,7 +113,14 @@ func (h *LearnerDiagnosticHandler) Submit(w http.ResponseWriter, r *http.Request
 		Answers:   body.Answers,
 	}, time.Now().UTC())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		if errors.Is(err, diagnostic.ErrDiagnosticAttemptNotFound) {
+			status = http.StatusNotFound
+		}
+		if errors.Is(err, diagnostic.ErrNoDiagnosticQuestions) {
+			status = http.StatusBadRequest
+		}
+		http.Error(w, err.Error(), status)
 		return
 	}
 

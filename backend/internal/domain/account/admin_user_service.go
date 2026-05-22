@@ -116,5 +116,5 @@ func (s *AdminUserService) invalidateUserCaches(ctx context.Context, userID stri
 	if err != nil || s.cache == nil {
 		return
 	}
-	s.cache.Invalidate(ctx, accountAdminUsersNamespace(), accountUserNamespace(userID), accountStatsNamespace())
+	s.cache.Invalidate(ctx, accountAdminUsersNamespace(), accountUserNamespace(userID), accountStatsNamespace(), "auth:token")
 }

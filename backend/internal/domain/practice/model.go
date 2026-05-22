@@ -44,6 +44,9 @@ type PracticeSessionItemView struct {
 	QuestionType      string              `json:"question_type"`
 	Score             int                 `json:"score"`
 	Content           PracticeItemContent `json:"content"`
+	Submitted         bool                `json:"submitted"`
+	IsCorrect         *bool               `json:"is_correct,omitempty"`
+	UserAnswer        []string            `json:"user_answer,omitempty"`
 }
 
 type PracticeSessionView struct {

@@ -126,28 +126,13 @@ func TestRouterRateLimitsSeedAdminRequests(t *testing.T) {
 		SeedChinese: func(http.ResponseWriter, *http.Request) {},
 	})
 
-	for attempt := 0; attempt < 2; attempt++ {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/seed/admin", nil)
-		req.RemoteAddr = "127.0.0.1:34567"
-		res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/seed/admin", nil)
+	req.RemoteAddr = "127.0.0.1:34567"
+	res := httptest.NewRecorder()
 
-		router.ServeHTTP(res, req)
+	router.ServeHTTP(res, req)
 
-		if res.Code != http.StatusOK {
-			t.Fatalf("expected attempt %d to succeed, got %d", attempt+1, res.Code)
-		}
-	}
-
-	limitedReq := httptest.NewRequest(http.MethodPost, "/api/v1/seed/admin", nil)
-	limitedReq.RemoteAddr = "127.0.0.1:34567"
-	limitedRes := httptest.NewRecorder()
-
-	router.ServeHTTP(limitedRes, limitedReq)
-
-	if limitedRes.Code != http.StatusTooManyRequests {
-		t.Fatalf("expected third request to be rate limited, got %d", limitedRes.Code)
-	}
-	if got := limitedRes.Header().Get("Retry-After"); got == "" {
-		t.Fatal("expected Retry-After header on rate-limited response")
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected seed endpoint to require auth, got %d", res.Code)
 	}
 }

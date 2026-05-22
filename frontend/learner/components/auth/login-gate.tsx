@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 type LoginGateProps = {
   supabaseUrl: string
@@ -358,6 +359,7 @@ export function LoginGate({ supabaseUrl, publishableKey }: LoginGateProps) {
                   </Label>
                   <button
                     type="button"
+                    onClick={() => toast.info("请联系管理员重置密码")}
                     className="text-xs font-semibold text-[color:var(--secondary)] transition-colors hover:text-[color:var(--primary-container)]"
                   >
                   {copy.forgotPassword}

@@ -184,7 +184,7 @@ func (s *Service) buildHomeUncached(ctx context.Context, userID, examID string, 
 	if err != nil {
 		return nil, err
 	}
-	sessions, err := s.repo.ListPracticeSessions(ctx, userID, examID, 50)
+	sessions, err := s.repo.ListPracticeSessions(ctx, userID, examID, 10000)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (s *Service) buildHomeUncached(ctx context.Context, userID, examID string, 
 	countdownDays := countdownDays(now, exam)
 	weeklyActivity := buildWeeklyActivity(now, sessions)
 	progressStats := buildProgressStats(sessions, kpResults)
-	recommendations := buildRecommendations(exam, sessions, weakPoints, diagnosticSummary, countdownDays, buildVolatilityAlert(sessions))
+	recommendations := buildRecommendations(exam, sessions, weakPoints, diagnosticSummary, countdownDays, buildVolatilityAlert(sessions, diagnosticCompletedAt(diagnosticSummary)))
 	todayTasks := buildTodayTasks(now, exam, sessions, weakPoints, countdownDays, recommendations, completedInteractiveAttempts)
 
 	return &Payload{
@@ -230,7 +230,7 @@ func (s *Service) buildHomeUncached(ctx context.Context, userID, examID string, 
 		XPCurrent:         xpCurrent,
 		XPTarget:          xpTarget,
 		DiagnosticSummary: diagnosticSummary,
-		VolatilityAlert:   buildVolatilityAlert(sessions),
+		VolatilityAlert:   buildVolatilityAlert(sessions, diagnosticCompletedAt(diagnosticSummary)),
 		TodayTasks:        todayTasks,
 		WeeklyActivity:    weeklyActivity,
 		WeakPoints:        weakPoints,
@@ -281,6 +281,9 @@ func buildTodayTasks(now time.Time, exam *ExamOverview, sessions []profilepkg.Pr
 	for _, point := range weakPoints {
 		if len(tasks) >= 3 {
 			break
+		}
+		if point.Source == "diagnostic_profile" && !point.ReviewDue {
+			continue
 		}
 		tasks = append(tasks, TodayTask{
 			ID:                "weak:" + point.ID,
@@ -655,6 +658,33 @@ func buildRecommendations(exam *ExamOverview, sessions []profilepkg.PracticeSess
 			break
 		}
 		score := 88 - index*5
+		if point.Source == "diagnostic_profile" && !point.ReviewDue {
+			recommendations = append(recommendations, Recommendation{
+				ID:               "weak-" + point.ID,
+				TaskType:         "diagnostic_weakness",
+				TaskTypeLabel:    "弱项巩固",
+				Title:            "巩固薄弱知识点：" + point.Name,
+				EstimatedMinutes: 12,
+				PriorityScore:    score,
+				Status:           "active",
+				ActionHref:       "/practice/setup",
+				ActionTarget: map[string]any{
+					"knowledge_point_id": point.ID,
+				},
+				Reasons: []RecommendationReason{
+					{
+						ReasonCode: "diagnostic_weak_point",
+						ReasonText: fmt.Sprintf("诊断显示 %s 掌握度 %d%%，建议针对性练习巩固。", point.Name, point.Mastery),
+						Evidence: map[string]any{
+							"knowledge_point_id": point.ID,
+							"mastery_score":      point.Mastery,
+							"confidence_score":   point.ConfidenceScore,
+						},
+					},
+				},
+			})
+			continue
+		}
 		recommendations = append(recommendations, Recommendation{
 			ID:               "weak-" + point.ID,
 			TaskType:         "spaced_review",
@@ -845,19 +875,34 @@ func buildLearningReport(now time.Time, weekly []WeeklyActivity, stats ProgressS
 	}
 }
 
-func buildVolatilityAlert(sessions []profilepkg.PracticeSessionSummary) *VolatilityAlert {
-	if len(sessions) < 2 {
+func diagnosticCompletedAt(summary *DiagnosticSummary) time.Time {
+	if summary == nil || !summary.HasCompleted || summary.CompletedAt == "" {
+		return time.Time{}
+	}
+	t, _ := time.Parse(time.RFC3339, summary.CompletedAt)
+	return t
+}
+
+func buildVolatilityAlert(sessions []profilepkg.PracticeSessionSummary, lastDiagnosticAt time.Time) *VolatilityAlert {
+	var recent []profilepkg.PracticeSessionSummary
+	for _, s := range sessions {
+		if !lastDiagnosticAt.IsZero() && !s.CreatedAt.After(lastDiagnosticAt) {
+			continue
+		}
+		recent = append(recent, s)
+	}
+	if len(recent) < 2 {
 		return nil
 	}
 
-	limit := len(sessions)
+	limit := len(recent)
 	if limit > 10 {
 		limit = 10
 	}
 
 	minAccuracy := 101
 	maxAccuracy := -1
-	for _, session := range sessions[:limit] {
+	for _, session := range recent[:limit] {
 		accuracy := sessionAccuracy(session)
 		if accuracy < minAccuracy {
 			minAccuracy = accuracy

@@ -18,6 +18,7 @@ var (
 
 type Repository interface {
 	FindLatestAttempt(ctx context.Context, userID, examID string) (*Attempt, error)
+	FindAttemptByID(ctx context.Context, userID, attemptID string) (*Attempt, error)
 	CreateAttempt(ctx context.Context, attempt *Attempt) error
 	UpdateAttempt(ctx context.Context, attempt *Attempt) error
 	ListDiagnosticQuestions(ctx context.Context, examID string, limit int) ([]Question, error)
@@ -78,6 +79,13 @@ func (s *Service) getCurrentUncached(ctx context.Context, userID, examID string,
 }
 
 func (s *Service) Restart(ctx context.Context, userID, examID, triggerType string, now time.Time) (*CurrentPayload, error) {
+	existing, err := s.repo.FindLatestAttempt(ctx, userID, examID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil && existing.Status == StatusPending {
+		return nil, errors.New("diagnostic attempt already in progress")
+	}
 	questions, err := s.repo.ListDiagnosticQuestions(ctx, examID, 0)
 	if err != nil {
 		return nil, err
@@ -164,18 +172,7 @@ func learnerNamespace(userID, examID string) string {
 }
 
 func (s *Service) findAttemptByID(ctx context.Context, userID, attemptID string) (*Attempt, error) {
-	// minimum repository surface: reuse latest lookup by exam isn't enough, so scan latest profiles is not viable.
-	// Keep implementation simple by asking repo for latest attempt across exam ids and matching ID via payload update path.
-	// For confirmed seed there is a single active diagnostic per exam, so this is enough when combined with frontend flow.
-	// We still guard by ID to avoid mismatched submissions.
-	profileAwareAttempt, err := s.repo.FindLatestAttempt(ctx, userID, "")
-	if err == nil && profileAwareAttempt != nil && profileAwareAttempt.ID == attemptID {
-		return profileAwareAttempt, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return s.repo.FindAttemptByID(ctx, userID, attemptID)
 }
 
 func buildProfileSummary(items []Question, answers map[string][]string, now time.Time) ProfileSummary {
@@ -267,11 +264,15 @@ func buildAreaSummaries(bucket map[string]*areaAccumulator) ([]AreaSummary, []st
 	recommendedIDs := make([]string, 0, 2)
 	recommendedNames := make([]string, 0, 2)
 	for index := range stats {
-		if index < 2 {
-			stats[index].Recommended = true
-			recommendedIDs = append(recommendedIDs, stats[index].ID)
-			recommendedNames = append(recommendedNames, stats[index].Name)
+		if index >= 2 {
+			break
 		}
+		if stats[index].Accuracy >= 80 {
+			continue
+		}
+		stats[index].Recommended = true
+		recommendedIDs = append(recommendedIDs, stats[index].ID)
+		recommendedNames = append(recommendedNames, stats[index].Name)
 	}
 	return stats, recommendedIDs, recommendedNames
 }
@@ -280,7 +281,7 @@ func buildKnowledgeMasteries(bucket map[string]*areaAccumulator, now time.Time) 
 	stats := make([]KnowledgeMastery, 0, len(bucket))
 	for _, item := range bucket {
 		mastery := percentage(item.correct, item.attempts)
-		confidence := 40 + item.attempts*20
+		confidence := 20 + mastery/2 + item.attempts*10
 		if confidence > 100 {
 			confidence = 100
 		}

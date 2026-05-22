@@ -60,18 +60,16 @@ func NewRepository(engine *xorm.Engine) *XormRepository {
 }
 
 func (r *XormRepository) EnsureProfile(ctx context.Context, userID, displayName string) error {
-	if displayName == "" {
-		displayName = "Learner"
-	}
 	existing := &Profile{Id: userID}
 	has, err := r.engine.Context(ctx).Get(existing)
 	if err != nil {
 		return err
 	}
 	if has {
-		existing.DisplayName = displayName
-		_, err = r.engine.Context(ctx).ID(userID).Cols("display_name").Update(existing)
-		return err
+		return nil
+	}
+	if displayName == "" {
+		displayName = "Learner"
 	}
 	_, err = r.engine.Context(ctx).Insert(&Profile{
 		Id:          userID,

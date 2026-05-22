@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"foco/backend/api/internal/domain/content"
+	"foco/backend/api/internal/http/middleware"
 )
 
 type ContentService interface {
@@ -50,6 +51,9 @@ func NewAdminContentHandler(contentService ContentService) *AdminContentHandler 
 }
 
 func (h *AdminContentHandler) ExamTree(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -67,6 +71,9 @@ func (h *AdminContentHandler) ExamTree(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminContentHandler) KnowledgePoints(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -85,6 +92,9 @@ func (h *AdminContentHandler) KnowledgePoints(w http.ResponseWriter, r *http.Req
 }
 
 func (h *AdminContentHandler) ListQuestions(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -111,6 +121,9 @@ func (h *AdminContentHandler) ListQuestions(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminContentHandler) GetVersionDetail(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -129,6 +142,9 @@ func (h *AdminContentHandler) GetVersionDetail(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AdminContentHandler) ListQuestionVersions(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -142,6 +158,9 @@ func (h *AdminContentHandler) ListQuestionVersions(w http.ResponseWriter, r *htt
 }
 
 func (h *AdminContentHandler) UpdateVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -185,6 +204,9 @@ func (h *AdminContentHandler) UpdateVersion(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminContentHandler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -198,6 +220,9 @@ func (h *AdminContentHandler) RestoreVersion(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminContentHandler) KnowledgeGraph(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -211,6 +236,9 @@ func (h *AdminContentHandler) KnowledgeGraph(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminContentHandler) ExportContentPackage(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		http.Error(w, "content service unavailable", http.StatusInternalServerError)
 		return
@@ -226,6 +254,9 @@ func (h *AdminContentHandler) ExportContentPackage(w http.ResponseWriter, r *htt
 }
 
 func (h *AdminContentHandler) ImportContentPackage(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.contentService == nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"data":  nil,
@@ -285,6 +316,9 @@ func jsonString(v any) string {
 }
 
 func (h *AdminContentHandler) CreateExam(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		Code        string  `json:"code"`
 		Name        string  `json:"name"`
@@ -300,6 +334,9 @@ func (h *AdminContentHandler) CreateExam(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *AdminContentHandler) CreateSubject(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		ExamId    string `json:"exam_id"`
 		Code      string `json:"code"`
@@ -316,6 +353,9 @@ func (h *AdminContentHandler) CreateSubject(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminContentHandler) CreateChapter(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		SubjectId string `json:"subject_id"`
 		Code      string `json:"code"`
@@ -344,6 +384,9 @@ func (h *AdminContentHandler) RenameChapter(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminContentHandler) renameNode(w http.ResponseWriter, r *http.Request, nodeType, nodeID string) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		Name string `json:"name"`
 	}
@@ -360,6 +403,9 @@ func (h *AdminContentHandler) renameNode(w http.ResponseWriter, r *http.Request,
 }
 
 func (h *AdminContentHandler) CreateKnowledgePoint(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		ExamId      string  `json:"exam_id"`
 		Code        string  `json:"code"`
@@ -376,6 +422,9 @@ func (h *AdminContentHandler) CreateKnowledgePoint(w http.ResponseWriter, r *htt
 }
 
 func (h *AdminContentHandler) ListKnowledgePointEdges(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	examId := r.URL.Query().Get("exam_id")
 	edges, err := h.contentService.ListKnowledgePointEdges(r.Context(), examId)
 	if err != nil {
@@ -386,6 +435,9 @@ func (h *AdminContentHandler) ListKnowledgePointEdges(w http.ResponseWriter, r *
 }
 
 func (h *AdminContentHandler) CreateKnowledgePointEdge(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		ExamId string   `json:"exam_id"`
 		FromId string   `json:"from_knowledge_point_id"`
@@ -403,6 +455,9 @@ func (h *AdminContentHandler) CreateKnowledgePointEdge(w http.ResponseWriter, r 
 }
 
 func (h *AdminContentHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	var body struct {
 		ExamId    string  `json:"exam_id"`
 		SubjectId string  `json:"subject_id"`
@@ -418,6 +473,9 @@ func (h *AdminContentHandler) CreateQuestion(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminContentHandler) CreateQuestionVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	questionId := r.PathValue("questionId")
 	var body struct {
 		QuestionType  string `json:"question_type"`
@@ -441,12 +499,20 @@ func (h *AdminContentHandler) CreateQuestionVersion(w http.ResponseWriter, r *ht
 }
 
 func (h *AdminContentHandler) PublishVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	versionId := r.PathValue("versionId")
 	var body struct {
 		PublishNote *string `json:"publish_note"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	err := h.contentService.PublishVersion(r.Context(), versionId, "", body.PublishNote)
+	claims := middleware.ClaimsFromContext(r.Context())
+	publishedBy := ""
+	if claims != nil {
+		publishedBy = claims.UserID
+	}
+	err := h.contentService.PublishVersion(r.Context(), versionId, publishedBy, body.PublishNote)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
@@ -456,6 +522,9 @@ func (h *AdminContentHandler) PublishVersion(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminContentHandler) DeleteExam(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	examId := r.PathValue("examId")
 	count, _ := h.contentService.CountQuestionsByExam(r.Context(), examId)
 	if count > 0 {
@@ -470,6 +539,9 @@ func (h *AdminContentHandler) DeleteExam(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *AdminContentHandler) DeleteSubject(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	subjectId := r.PathValue("subjectId")
 	count, _ := h.contentService.CountQuestionsBySubject(r.Context(), subjectId)
 	if count > 0 {
@@ -484,6 +556,9 @@ func (h *AdminContentHandler) DeleteSubject(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminContentHandler) DeleteChapter(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	chapterId := r.PathValue("chapterId")
 	count, _ := h.contentService.CountQuestionsByChapter(r.Context(), chapterId)
 	if count > 0 {
@@ -498,6 +573,9 @@ func (h *AdminContentHandler) DeleteChapter(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminContentHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	questionId := r.PathValue("questionId")
 	if err := h.contentService.DeleteQuestion(r.Context(), questionId); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})

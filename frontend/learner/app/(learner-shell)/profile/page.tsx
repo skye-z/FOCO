@@ -24,6 +24,12 @@ import {
   readStoredSession,
   type ActiveEnrollmentSnapshot,
 } from "@/lib/auth-session";
+import {
+  buildKnowledgePointMasteryMap,
+  colorForKnowledgePointNode,
+  type LearnerKnowledgeGraphNode,
+  type KnowledgePointScore,
+} from "@/lib/knowledge-graph";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,8 +220,12 @@ function PointList({
 
 function LearnerKnowledgeGraph({
   graph,
+  weakPoints,
+  strongPoints,
 }: {
   graph?: ProfilePayload["portrait"]["knowledge_graph"];
+  weakPoints: KnowledgePointScore[];
+  strongPoints: KnowledgePointScore[];
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [selectedNode, setSelectedNode] = useState<{
@@ -238,18 +248,18 @@ function LearnerKnowledgeGraph({
     return { nodes, edges };
   }, [graph]);
 
+  const masteryMap = useMemo(
+    () =>
+      buildKnowledgePointMasteryMap(
+        graphData.nodes as LearnerKnowledgeGraphNode[],
+        weakPoints,
+        strongPoints,
+      ),
+    [graphData.nodes, weakPoints, strongPoints],
+  );
+
   useEffect(() => {
     if (!containerRef.current || graphData.nodes.length === 0) return;
-
-    const nodeColor = (node: (typeof graphData.nodes)[number]) => {
-      if (node.type === "exam") return "#f59e0b";
-      if (node.type === "subject") return "#7c3aed";
-      if (node.type === "chapter") return "#0f766e";
-      if (node.mastery == null) return "#94a3b8";
-      if (node.mastery < 50) return "#ef4444";
-      if (node.mastery < 80) return "#f59e0b";
-      return "#22c55e";
-    };
 
     const nodeSize = (type: string) => {
       if (type === "exam") return 42;
@@ -261,22 +271,28 @@ function LearnerKnowledgeGraph({
     const cy = cytoscape({
       container: containerRef.current,
       elements: {
-        nodes: graphData.nodes.map((node) => ({
-          data: {
-            id: node.id,
-            label: node.label || "未命名节点",
-            type: node.type,
-            description: node.description || "",
-            mastery: node.mastery,
-            attempts: node.attempts ?? 0,
-            color: nodeColor(node),
-            size: nodeSize(node.type),
-            borderColor:
-              node.type === "knowledge_point" && node.mastery == null
-                ? "#cbd5e1"
-                : "#ffffff",
-          },
-        })),
+        nodes: graphData.nodes.map((node) => {
+          const mastery = node.mastery ?? masteryMap.get(node.ref_id);
+          return {
+            data: {
+              id: node.id,
+              label: node.label || "未命名节点",
+              type: node.type,
+              description: node.description || "",
+              mastery,
+              attempts: node.attempts ?? 0,
+              color: colorForKnowledgePointNode(
+                { ...node, mastery } as LearnerKnowledgeGraphNode,
+                masteryMap,
+              ),
+              size: nodeSize(node.type),
+              borderColor:
+                node.type === "knowledge_point" && mastery == null
+                  ? "#cbd5e1"
+                  : "#ffffff",
+            },
+          };
+        }),
         edges: graphData.edges.map((edge) => ({
           data: {
             id: edge.id,
@@ -392,7 +408,7 @@ function LearnerKnowledgeGraph({
     return () => {
       cy.destroy();
     };
-  }, [graphData]);
+  }, [graphData, masteryMap]);
 
   if (graphData.nodes.length === 0) {
     return (
@@ -908,7 +924,11 @@ export default function ProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <LearnerKnowledgeGraph graph={portrait?.knowledge_graph} />
+                <LearnerKnowledgeGraph
+                  graph={portrait?.knowledge_graph}
+                  weakPoints={portrait?.weak_points ?? []}
+                  strongPoints={portrait?.strong_points ?? []}
+                />
               </CardContent>
             </Card>
 

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter, useParams } from "next/navigation"
 import { authFetch, readBrowserAccessToken } from "@/lib/auth-session"
+import { buildFormulaSubmission, buildHighlightSubmission } from "@/lib/interactive-submission"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -96,28 +97,6 @@ function charHighlightSegments(source: string): HighlightSegment[] {
     text: char,
     selectable: !/\s/.test(char),
   }))
-}
-
-function selectedTextsFromSegments(segments: HighlightSegment[], markedIds: string[]) {
-  const selected = new Set(markedIds)
-  const groups: string[] = []
-  let buffer = ""
-
-  for (const segment of segments) {
-    if (segment.selectable && selected.has(segment.id)) {
-      buffer += segment.text
-      continue
-    }
-    if (!segment.selectable && /\s/.test(segment.text) && buffer) {
-      buffer += segment.text
-      continue
-    }
-    if (buffer.trim()) groups.push(buffer.trim())
-    buffer = ""
-  }
-  if (buffer.trim()) groups.push(buffer.trim())
-
-  return groups
 }
 
 function correctHighlightIds(segments: HighlightSegment[], targets: Array<{ text: string }>) {
@@ -459,7 +438,7 @@ function HighlightWidget({
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">点击原文中的文字进行标注</p>
           <Button
-            onClick={() => onSubmit({ marked_ids: selectedTextsFromSegments(segments, markedIds) })}
+            onClick={() => onSubmit(buildHighlightSubmission(segments, markedIds))}
             disabled={submitting || markedIds.length === 0}
           >
             {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
@@ -836,6 +815,11 @@ function FormulaBuilderWidget({
   }, [step])
 
   const [slotValues, setSlotValues] = React.useState<Record<string, string>>({})
+  const [formulaText, setFormulaText] = React.useState("")
+
+  React.useEffect(() => {
+    setFormulaText("")
+  }, [step])
 
   const updateSlot = (key: string, value: string) => {
     if (feedback) return
@@ -896,10 +880,24 @@ function FormulaBuilderWidget({
           )
         })}
       </div>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">你的公式</label>
+        <input
+          type="text"
+          value={formulaText}
+          onChange={(e) => {
+            if (feedback) return
+            setFormulaText(e.target.value)
+          }}
+          disabled={!!feedback}
+          placeholder="例如 (1+r/m)^n-1"
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono"
+        />
+      </div>
       {!feedback && (
         <Button
-          onClick={() => onSubmit({ slot_values: slotValues })}
-          disabled={submitting}
+          onClick={() => onSubmit(buildFormulaSubmission(formulaText, slotValues))}
+          disabled={submitting || (!formulaText.trim() && Object.keys(slotValues).length === 0)}
           className="w-full"
         >
           {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
@@ -1077,7 +1075,7 @@ export default function InteractiveLabPage() {
   }, [unitVersionId])
 
   const submitAction = React.useCallback(
-    async (stepId: string, payload: Record<string, any>) => {
+    async (stepId: string, payload: Record<string, any>, stepIndex: number) => {
       if (!attemptId) return
       setSubmitting(true)
       try {
@@ -1092,17 +1090,17 @@ export default function InteractiveLabPage() {
         if (!res.ok) throw new Error("Submit failed")
         const json = await res.json()
         const fb: StepFeedback = json.data ?? json
-        setFeedbacks((prev) => ({ ...prev, [currentStep]: fb }))
+        setFeedbacks((prev) => ({ ...prev, [stepIndex]: fb }))
       } catch {
         setFeedbacks((prev) => ({
           ...prev,
-          [currentStep]: { is_correct: false, allow_continue: true, hint: "提交失败，请继续" },
+          [stepIndex]: { is_correct: false, allow_continue: true, hint: "提交失败，请继续" },
         }))
       } finally {
         setSubmitting(false)
       }
     },
-    [attemptId, currentStep]
+    [attemptId]
   )
 
   const goNext = React.useCallback(() => {
@@ -1230,7 +1228,7 @@ export default function InteractiveLabPage() {
             <StepWidget
               step={step}
               feedback={fb}
-              onSubmit={(payload) => submitAction(step.id, payload)}
+              onSubmit={(payload) => submitAction(step.id, payload, currentStep)}
               submitting={submitting}
             />
 

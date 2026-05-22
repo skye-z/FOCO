@@ -34,7 +34,9 @@ func SeedDefaultAdmin(cfg SeedConfig) (string, bool, error) {
 		return "", false, fmt.Errorf("check existing user: %w", err)
 	}
 	if has && profile.Id != "" {
-		_ = ensureAdminRoleXorm(cfg.Engine, profile.Id)
+		if err := ensureAdminRoleXorm(cfg.Engine, profile.Id); err != nil {
+			return "", false, fmt.Errorf("ensure admin role: %w", err)
+		}
 		return email, false, nil
 	}
 
@@ -77,25 +79,28 @@ func SeedDefaultAdmin(cfg SeedConfig) (string, bool, error) {
 		return email, true, fmt.Errorf("insert profile: %w", err)
 	}
 
-	_ = ensureAdminRoleXorm(cfg.Engine, result.ID)
+	if err := ensureAdminRoleXorm(cfg.Engine, result.ID); err != nil {
+		return email, true, fmt.Errorf("ensure admin role: %w", err)
+	}
 
 	return email, true, nil
 }
 
 func ensureAdminRoleXorm(engine *xorm.Engine, userID string) error {
-	existing := &UserRole{UserId: userID, Role: "admin"}
-	has, err := engine.Get(existing)
+	count, err := engine.Table("user_roles").Where("user_id = ? AND role = 'admin'", userID).Count()
 	if err != nil {
-		return err
+		return fmt.Errorf("check admin role: %w", err)
 	}
-	if has {
+	if count > 0 {
 		return nil
 	}
-	_, err = engine.Insert(&UserRole{
-		UserId:    userID,
-		Role:      "admin",
-		GrantedAt: time.Now(),
-		CreatedAt: time.Now(),
-	})
-	return err
+	_, err = engine.Exec(`
+		INSERT INTO user_roles (id, user_id, role, granted_at, created_at)
+		VALUES (gen_random_uuid(), ?::uuid, 'admin', now(), now())
+		ON CONFLICT DO NOTHING
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("insert admin role: %w", err)
+	}
+	return nil
 }

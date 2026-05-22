@@ -50,6 +50,9 @@ func mapInteractiveError(err error) int {
 }
 
 func (h *AdminInteractiveHandler) ListUnits(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -65,6 +68,9 @@ func (h *AdminInteractiveHandler) ListUnits(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminInteractiveHandler) CreateUnit(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -84,6 +90,9 @@ func (h *AdminInteractiveHandler) CreateUnit(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminInteractiveHandler) ListVersions(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -98,6 +107,9 @@ func (h *AdminInteractiveHandler) ListVersions(w http.ResponseWriter, r *http.Re
 }
 
 func (h *AdminInteractiveHandler) CreateVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -112,6 +124,9 @@ func (h *AdminInteractiveHandler) CreateVersion(w http.ResponseWriter, r *http.R
 }
 
 func (h *AdminInteractiveHandler) GetVersionDetail(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -126,6 +141,9 @@ func (h *AdminInteractiveHandler) GetVersionDetail(w http.ResponseWriter, r *htt
 }
 
 func (h *AdminInteractiveHandler) UpdateVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -147,6 +165,9 @@ func (h *AdminInteractiveHandler) UpdateVersion(w http.ResponseWriter, r *http.R
 }
 
 func (h *AdminInteractiveHandler) PublishVersion(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return
@@ -161,6 +182,9 @@ func (h *AdminInteractiveHandler) PublishVersion(w http.ResponseWriter, r *http.
 }
 
 func (h *AdminInteractiveHandler) DeleteUnit(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
 	if h.interactiveService == nil {
 		http.Error(w, "interactive service unavailable", http.StatusInternalServerError)
 		return

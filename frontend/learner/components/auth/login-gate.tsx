@@ -228,11 +228,14 @@ export function LoginGate({ supabaseUrl, publishableKey }: LoginGateProps) {
 
       if (mode === "register") {
         const bootstrapped = await bootstrapLearner(session.accessToken, displayName)
-        if (!bootstrapped) {
+        if (!bootstrapped || !bootstrapped.user.roles.includes("learner")) {
           setError(copy.bootstrapFailed)
           setState("ready")
           return
         }
+        writeStoredSession(session)
+        router.replace("/onboarding")
+        return
       }
 
       const me = await fetchMe(session.accessToken)
@@ -560,7 +563,21 @@ async function bootstrapLearner(token: string, displayName: string) {
     }),
   })
 
-  return response.ok
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = (await response.json()) as {
+    data: {
+      user: {
+        id: string
+        email: string
+        roles: string[]
+      }
+    }
+  }
+
+  return payload.data
 }
 
 async function fetchMe(token: string) {
@@ -602,11 +619,13 @@ async function fetchMe(token: string) {
   }
 }
 
+type MeData = NonNullable<Awaited<ReturnType<typeof fetchMe>>>
+
 async function ensureLearnerBootstrap(
   token: string,
-  me: NonNullable<Awaited<ReturnType<typeof fetchMe>>>,
+  me: MeData,
   displayName: string,
-) {
+): Promise<MeData | null> {
   if (me.user.roles.includes("learner")) {
     return me
   }
@@ -616,9 +635,16 @@ async function ensureLearnerBootstrap(
     me.user.email?.split("@")[0] ||
     "Learner"
 
-  const ok = await bootstrapLearner(token, fallbackName)
-  if (!ok) {
+  const bootstrapped = await bootstrapLearner(token, fallbackName)
+  if (!bootstrapped) {
     return null
+  }
+
+  if (bootstrapped.user.roles.includes("learner")) {
+    return {
+      user: bootstrapped.user,
+      active_exam_enrollment: me.active_exam_enrollment,
+    }
   }
 
   return fetchMe(token)

@@ -1017,7 +1017,7 @@ func levelTitle(level int) string {
 	case level >= 5:
 		return "探索者"
 	default:
-		return "起步者"
+		return "初学者"
 	}
 }
 

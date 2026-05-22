@@ -66,18 +66,18 @@ func (r *XormRepository) FindLatestAttempt(ctx context.Context, userID, examID s
 	}
 
 	var summary struct {
-		Items  []Question      `json:"items"`
+		Items  json.RawMessage `json:"items"`
 		Result *ProfileSummary `json:"result"`
 	}
 	_ = json.Unmarshal([]byte(row.Summary), &summary)
-	attempt.Items = summary.Items
+	attempt.Items = unmarshalItems(summary.Items)
 	attempt.Result = summary.Result
 	return attempt, nil
 }
 
 func (r *XormRepository) CreateAttempt(ctx context.Context, attempt *Attempt) error {
 	summaryJSON, _ := json.Marshal(map[string]any{
-		"items":  attempt.Items,
+		"items":  marshalItems(attempt.Items),
 		"result": nil,
 	})
 	_, err := r.engine.Context(ctx).Exec(`
@@ -92,7 +92,7 @@ func (r *XormRepository) CreateAttempt(ctx context.Context, attempt *Attempt) er
 
 func (r *XormRepository) UpdateAttempt(ctx context.Context, attempt *Attempt) error {
 	summaryJSON, _ := json.Marshal(map[string]any{
-		"items":  attempt.Items,
+		"items":  marshalItems(attempt.Items),
 		"result": attempt.Result,
 	})
 	_, err := r.engine.Context(ctx).Exec(`
@@ -308,4 +308,56 @@ func decodeKnowledgePoints(raw string) []KnowledgePoint {
 		return []KnowledgePoint{}
 	}
 	return result
+}
+
+type questionJSON struct {
+	ID                string           `json:"id"`
+	QuestionVersionID string           `json:"question_version_id"`
+	SubjectID         string           `json:"subject_id"`
+	SubjectName       string           `json:"subject_name"`
+	ChapterID         string           `json:"chapter_id"`
+	ChapterName       string           `json:"chapter_name"`
+	QuestionType      string           `json:"question_type"`
+	Stem              string           `json:"stem"`
+	Options           []Option         `json:"options"`
+	CorrectLabels     []string         `json:"correct_labels"`
+	KnowledgePoints   []KnowledgePoint `json:"knowledge_points"`
+}
+
+func marshalItems(items []Question) []questionJSON {
+	out := make([]questionJSON, len(items))
+	for i, q := range items {
+		out[i] = questionJSON{
+			ID: q.ID, QuestionVersionID: q.QuestionVersionID,
+			SubjectID: q.SubjectID, SubjectName: q.SubjectName,
+			ChapterID: q.ChapterID, ChapterName: q.ChapterName,
+			QuestionType: q.QuestionType, Stem: q.Stem,
+			Options: q.Options, CorrectLabels: q.CorrectLabels,
+			KnowledgePoints: q.KnowledgePoints,
+		}
+	}
+	return out
+}
+
+func unmarshalItems(raw json.RawMessage) []Question {
+	var trimmed json.RawMessage
+	if err := json.Unmarshal(raw, &trimmed); err == nil {
+		raw = trimmed
+	}
+	var items []questionJSON
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	out := make([]Question, len(items))
+	for i, q := range items {
+		out[i] = Question{
+			ID: q.ID, QuestionVersionID: q.QuestionVersionID,
+			SubjectID: q.SubjectID, SubjectName: q.SubjectName,
+			ChapterID: q.ChapterID, ChapterName: q.ChapterName,
+			QuestionType: q.QuestionType, Stem: q.Stem,
+			Options: q.Options, CorrectLabels: q.CorrectLabels,
+			KnowledgePoints: q.KnowledgePoints,
+		}
+	}
+	return out
 }

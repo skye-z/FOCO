@@ -3,10 +3,10 @@ package diagnostic
 import "time"
 
 const (
-	TriggerTypeInitialAuto  = "initial_auto"
+	TriggerTypeInitialAuto   = "initial_auto"
 	TriggerTypeManualRestart = "manual_restart"
-	StatusPending           = "pending"
-	StatusCompleted         = "completed"
+	StatusPending            = "pending"
+	StatusCompleted          = "completed"
 )
 
 type KnowledgePoint struct {
@@ -34,14 +34,14 @@ type Question struct {
 }
 
 type Attempt struct {
-	ID          string      `json:"id"`
-	UserID      string      `json:"user_id"`
-	ExamID      string      `json:"exam_id"`
-	TriggerType string      `json:"trigger_type"`
-	Status      string      `json:"status"`
-	StartedAt   *time.Time  `json:"started_at,omitempty"`
-	CompletedAt *time.Time  `json:"completed_at,omitempty"`
-	Items       []Question  `json:"items,omitempty"`
+	ID          string          `json:"id"`
+	UserID      string          `json:"user_id"`
+	ExamID      string          `json:"exam_id"`
+	TriggerType string          `json:"trigger_type"`
+	Status      string          `json:"status"`
+	StartedAt   *time.Time      `json:"started_at,omitempty"`
+	CompletedAt *time.Time      `json:"completed_at,omitempty"`
+	Items       []Question      `json:"items,omitempty"`
 	Result      *ProfileSummary `json:"result,omitempty"`
 }
 
@@ -62,20 +62,20 @@ type AreaSummary struct {
 }
 
 type ProfileSummary struct {
-	HasCompleted                 bool               `json:"has_completed"`
-	CompletedAt                  string             `json:"completed_at,omitempty"`
-	OverallAccuracy              int                `json:"overall_accuracy"`
-	SummaryText                  string             `json:"summary_text"`
-	RecommendedDifficulty        string             `json:"recommended_difficulty"`
-	RecommendedSubjectIDs        []string           `json:"recommended_subject_ids"`
-	RecommendedSubjectNames      []string           `json:"recommended_subject_names"`
-	RecommendedChapterIDs        []string           `json:"recommended_chapter_ids"`
-	RecommendedChapterNames      []string           `json:"recommended_chapter_names"`
-	RecommendedKnowledgePointIDs []string           `json:"recommended_knowledge_point_ids"`
-	RecommendedKnowledgePointNames []string         `json:"recommended_knowledge_point_names"`
-	Subjects                     []AreaSummary      `json:"subjects"`
-	Chapters                     []AreaSummary      `json:"chapters"`
-	KnowledgePoints              []KnowledgeMastery `json:"knowledge_points"`
+	HasCompleted                   bool               `json:"has_completed"`
+	CompletedAt                    string             `json:"completed_at,omitempty"`
+	OverallAccuracy                int                `json:"overall_accuracy"`
+	SummaryText                    string             `json:"summary_text"`
+	RecommendedDifficulty          string             `json:"recommended_difficulty"`
+	RecommendedSubjectIDs          []string           `json:"recommended_subject_ids"`
+	RecommendedSubjectNames        []string           `json:"recommended_subject_names"`
+	RecommendedChapterIDs          []string           `json:"recommended_chapter_ids"`
+	RecommendedChapterNames        []string           `json:"recommended_chapter_names"`
+	RecommendedKnowledgePointIDs   []string           `json:"recommended_knowledge_point_ids"`
+	RecommendedKnowledgePointNames []string           `json:"recommended_knowledge_point_names"`
+	Subjects                       []AreaSummary      `json:"subjects"`
+	Chapters                       []AreaSummary      `json:"chapters"`
+	KnowledgePoints                []KnowledgeMastery `json:"knowledge_points"`
 }
 
 type Profile struct {

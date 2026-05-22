@@ -65,8 +65,8 @@ func (h *LearnerContentHandler) ExamContentTree(w http.ResponseWriter, r *http.R
 		for _, ch := range subj.Children {
 			kpItems := make([]map[string]any, 0)
 			chapters = append(chapters, map[string]any{
-				"id":   ch.Id,
-				"name": ch.Name,
+				"id":               ch.Id,
+				"name":             ch.Name,
 				"knowledge_points": kpItems,
 			})
 		}

@@ -1,0 +1,96 @@
+name: foco-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - "codex/**"
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Backend tests
+        working-directory: backend
+        run: go test ./...
+
+  frontend-and-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/admin/package-lock.json
+            frontend/learner/package-lock.json
+            test/package-lock.json
+
+      - name: Install root quality tools
+        run: npm ci
+
+      - name: Install learner dependencies
+        run: npm ci --prefix frontend/learner
+
+      - name: Install admin dependencies
+        run: npm ci --prefix frontend/admin
+
+      - name: Install delivery test dependencies
+        run: npm ci --prefix test
+
+      - name: Lint and static checks
+        run: npm run lint
+
+      - name: Learner unit tests
+        run: npm run test --prefix frontend/learner
+
+      - name: Admin unit tests
+        run: npm run test --prefix frontend/admin
+
+      - name: Frontend builds
+        run: npm run build
+
+      - name: Delivery harness checks
+        run: |
+          npm run check --prefix test
+          npm run typecheck --prefix test
+
+  delivery-bundle:
+    if: github.event_name == 'workflow_dispatch'
+    needs:
+      - backend
+      - frontend-and-quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Build delivery bundle
+        run: bash ./build.sh
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foco-dist
+          path: dist

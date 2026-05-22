@@ -96,7 +96,6 @@ export async function completePracticeSession(page: Page) {
     const next = page.getByRole("button", { name: /下一题/ })
     if (await next.isVisible().catch(() => false)) {
       await next.click()
-      continue
     }
   }
 

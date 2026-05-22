@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $script:RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$envFile = Join-Path (Split-Path -Parent $script:RootDir) ".env"
+$envFile = Join-Path $script:RootDir ".env"
 $script:Processes = @()
 
 function Show-Help {

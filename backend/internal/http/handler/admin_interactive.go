@@ -132,7 +132,7 @@ func (h *AdminInteractiveHandler) UpdateVersion(w http.ResponseWriter, r *http.R
 	}
 	versionID := r.PathValue("versionId")
 	var body struct {
-		Title string                  `json:"title"`
+		Title string                   `json:"title"`
 		Steps []interactive.StepSchema `json:"steps"`
 	}
 	if r.Body != nil {

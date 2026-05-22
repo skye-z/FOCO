@@ -1,42 +1,38 @@
+import { describe, expect, it } from "vitest";
+
 import { createDefaultVisualStep } from "./block-types";
 import { hasUnsavedChanges, summarizePublishReadiness } from "./editor-status";
 
-const incompleteStep = createDefaultVisualStep("choice");
-const completeStep = {
-  ...incompleteStep,
-  content: {
-    ...incompleteStep.content,
-    title: "选择正确结论",
-    prompt: "Which option is correct?",
-    options: [{ id: "a", label: "A" }],
-  },
-  knowledge_point_ids: ["kp_1"],
-};
+describe("editor-status", () => {
+  const incompleteStep = createDefaultVisualStep("choice");
+  const completeStep = {
+    ...incompleteStep,
+    content: {
+      ...incompleteStep.content,
+      title: "选择正确结论",
+      prompt: "Which option is correct?",
+      options: [{ id: "a", label: "A" }],
+    },
+    knowledge_point_ids: ["kp_1"],
+  };
 
-const blankReadiness = summarizePublishReadiness([], "");
-if (blankReadiness.canPublish) {
-  throw new Error("blank editor must not be publishable");
-}
-if (!blankReadiness.missing.includes("单元标题")) {
-  throw new Error("blank editor must require title");
-}
+  it("prevents publishing when title or required block fields are missing", () => {
+    const blankReadiness = summarizePublishReadiness([], "");
+    expect(blankReadiness.canPublish).toBe(false);
+    expect(blankReadiness.missing).toContain("单元标题");
 
-const incompleteReadiness = summarizePublishReadiness([incompleteStep], "Draft");
-if (incompleteReadiness.canPublish) {
-  throw new Error("incomplete block must not be publishable");
-}
-if (incompleteReadiness.incompleteSteps.length !== 1) {
-  throw new Error("incomplete block must be reported");
-}
+    const incompleteReadiness = summarizePublishReadiness([incompleteStep], "Draft");
+    expect(incompleteReadiness.canPublish).toBe(false);
+    expect(incompleteReadiness.incompleteSteps).toHaveLength(1);
+  });
 
-const completeReadiness = summarizePublishReadiness([completeStep], "Unit title");
-if (!completeReadiness.canPublish) {
-  throw new Error("complete editor state must be publishable");
-}
+  it("allows publishing when the editor state is complete", () => {
+    const completeReadiness = summarizePublishReadiness([completeStep], "Unit title");
+    expect(completeReadiness.canPublish).toBe(true);
+  });
 
-if (hasUnsavedChanges("Title", [completeStep], "Title", [completeStep])) {
-  throw new Error("identical snapshots must not be dirty");
-}
-if (!hasUnsavedChanges("Title", [completeStep], "New Title", [completeStep])) {
-  throw new Error("title change must mark editor dirty");
-}
+  it("tracks unsaved changes from title updates", () => {
+    expect(hasUnsavedChanges("Title", [completeStep], "Title", [completeStep])).toBe(false);
+    expect(hasUnsavedChanges("Title", [completeStep], "New Title", [completeStep])).toBe(true);
+  });
+});

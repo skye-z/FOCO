@@ -9,6 +9,8 @@
 - [DATABASE_DESIGN.md](./DATABASE_DESIGN.md)
 - [LEARNING_INTELLIGENCE_DESIGN.md](./LEARNING_INTELLIGENCE_DESIGN.md)
 - [DESIGN_DECISIONS.md](./DESIGN_DECISIONS.md)
+- [SCORECARD.md](./SCORECARD.md)
+- [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
 - [FOCO.postman_collection.json](./FOCO.postman_collection.json)
 - [../.env.example](../.env.example)
 - [../test/README.md](../test/README.md)
@@ -57,3 +59,17 @@
 ## 验收
 
 交付 E2E 说明见 [test/README.md](./test/README.md)。
+
+## 质量门禁
+
+- `npm run lint`：仓库脚本 / 文档检查 + Learner/Admin/Test TypeScript 静态检查 + Go 格式检查
+- `npm run test`：Backend `go test ./...` + Learner/Admin 单元测试
+- `npm run build`：Learner/Admin 生产构建
+- `npm run check --prefix test`：E2E 运行时检查
+- `npm run typecheck --prefix test`：Playwright 验收脚本类型检查
+
+## 加分项覆盖
+
+- 已覆盖第三部分全部 3 个进阶方向：每日学习路径、诊断测评/知识图谱/任务选择、交互式学习单元
+- 已提供知识图谱可视化与策略解释字段
+- 已补齐性能优化 / 安全设计 / CI-CD / 监控设计证据，详见 [SCORECARD.md](./SCORECARD.md)

@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "bash ./scripts/node20.sh ./scripts/check-runtime.mjs",
-    "typecheck": "bash ./scripts/node20.sh ./node_modules/typescript/bin/tsc --noEmit",
-    "test:e2e": "bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js test --project=edge",
-    "test:e2e:headed": "E2E_HEADLESS=0 bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js test --project=edge",
-    "test:e2e:headless": "E2E_HEADLESS=1 bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js test --project=edge",
-    "report": "bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js show-report artifacts/html-report"
+    "check": "node ./scripts/check-runtime.mjs",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "test:e2e": "node ./scripts/run-playwright.mjs test",
+    "test:e2e:headed": "node ./scripts/run-playwright.mjs test-headed",
+    "test:e2e:headless": "node ./scripts/run-playwright.mjs test-headless",
+    "report": "node ./scripts/run-playwright.mjs report"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

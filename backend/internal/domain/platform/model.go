@@ -27,8 +27,8 @@ type LLMSettingsSummary struct {
 }
 
 type AdminSettings struct {
-	LLM             LLMSettingsSummary `json:"llm"`
-	RegistrationOpen bool              `json:"registration_open"`
+	LLM              LLMSettingsSummary `json:"llm"`
+	RegistrationOpen bool               `json:"registration_open"`
 }
 
 type AdminSettingsUpdate struct {

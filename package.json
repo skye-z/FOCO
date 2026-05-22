@@ -1,0 +1,23 @@
+{
+  "name": "foco-quality-gates",
+  "private": true,
+  "scripts": {
+    "lint": "npm run lint:repo && npm run lint:web && npm run lint:go",
+    "lint:repo": "biome lint scripts .github/workflows package.json biome.json README.md docs test",
+    "lint:web": "npm run typecheck --prefix frontend/learner && npm run typecheck --prefix frontend/admin && npm run typecheck --prefix test",
+    "lint:go": "node ./scripts/check-gofmt.mjs",
+    "format": "npm run format:web && npm run format:go",
+    "format:web": "biome format --write scripts .github/workflows package.json biome.json README.md docs test",
+    "format:go": "node ./scripts/format-go.mjs",
+    "format:check": "npm run format:check:web && npm run format:check:go",
+    "format:check:web": "biome format --check scripts .github/workflows package.json biome.json README.md docs test",
+    "format:check:go": "node ./scripts/check-gofmt.mjs",
+    "typecheck": "npm run typecheck --prefix frontend/learner && npm run typecheck --prefix frontend/admin && npm run typecheck --prefix test",
+    "test": "cd backend && go test ./... && cd .. && npm run test --prefix frontend/learner && npm run test --prefix frontend/admin",
+    "build": "npm run build --prefix frontend/learner && npm run build --prefix frontend/admin",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check --prefix test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}

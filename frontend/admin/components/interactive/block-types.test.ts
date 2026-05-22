@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import {
   VISUAL_BLOCKS,
   createDefaultVisualStep,
@@ -6,45 +8,38 @@ import {
   type VisualBlockType,
 } from "./block-types";
 
-const REQUIRED_BLOCKS: VisualBlockType[] = [
-  "formula_drag",
-  "parameter_chart",
-  "reasoning_sort",
-  "concept_match",
-  "condition_mark",
-  "choice",
-  "fill_blank",
-];
+describe("block-types", () => {
+  const REQUIRED_BLOCKS: VisualBlockType[] = [
+    "formula_drag",
+    "parameter_chart",
+    "reasoning_sort",
+    "concept_match",
+    "condition_mark",
+    "choice",
+    "fill_blank",
+  ];
 
-for (const blockType of REQUIRED_BLOCKS) {
-  const definition = getBlockDefinition(blockType);
-  if (!definition) {
-    throw new Error(`Missing block definition for ${blockType}`);
-  }
-  if (!definition.label || !definition.description) {
-    throw new Error(`Block ${blockType} must have label and description`);
-  }
+  it("registers every required visual block", () => {
+    expect(VISUAL_BLOCKS).toHaveLength(REQUIRED_BLOCKS.length);
+  });
 
-  const step = createDefaultVisualStep(blockType);
-  if (!step.widget_type) {
-    throw new Error(`Block ${blockType} must map to widget_type`);
-  }
-  if (!step.content || !step.initial_state || !step.allowed_actions) {
-    throw new Error(`Block ${blockType} must initialize config objects`);
-  }
-  if (!step.evaluation_config || !step.feedback_map || !step.hint_policy) {
-    throw new Error(`Block ${blockType} must initialize evaluation objects`);
-  }
+  it.each(REQUIRED_BLOCKS)("defines %s with a complete scaffold", (blockType) => {
+    const definition = getBlockDefinition(blockType);
+    expect(definition).toBeTruthy();
+    expect(definition?.label).toBeTruthy();
+    expect(definition?.description).toBeTruthy();
 
-  const completeness = evaluateBlockCompleteness(step);
-  if (completeness.complete) {
-    throw new Error(`Default block ${blockType} should start incomplete`);
-  }
-  if (completeness.missing.length === 0) {
-    throw new Error(`Default block ${blockType} should report missing fields`);
-  }
-}
+    const step = createDefaultVisualStep(blockType);
+    expect(step.widget_type).toBeTruthy();
+    expect(step.content).toBeTruthy();
+    expect(step.initial_state).toBeTruthy();
+    expect(step.allowed_actions).toBeTruthy();
+    expect(step.evaluation_config).toBeTruthy();
+    expect(step.feedback_map).toBeTruthy();
+    expect(step.hint_policy).toBeTruthy();
 
-if (VISUAL_BLOCKS.length !== REQUIRED_BLOCKS.length) {
-  throw new Error("Visual block registry must contain all required blocks");
-}
+    const completeness = evaluateBlockCompleteness(step);
+    expect(completeness.complete).toBe(false);
+    expect(completeness.missing.length).toBeGreaterThan(0);
+  });
+});

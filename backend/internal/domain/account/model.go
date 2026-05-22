@@ -13,10 +13,10 @@ type Profile struct {
 func (Profile) TableName() string { return "profiles" }
 
 type UserRole struct {
-	Id       string    `xorm:"'id' pk uuid"`
-	UserId   string    `xorm:"'user_id' notnull uuid"`
-	Role     string    `xorm:"'role' notnull"`
-	GrantedBy *string  `xorm:"'granted_by' uuid"`
+	Id        string    `xorm:"'id' pk uuid"`
+	UserId    string    `xorm:"'user_id' notnull uuid"`
+	Role      string    `xorm:"'role' notnull"`
+	GrantedBy *string   `xorm:"'granted_by' uuid"`
 	GrantedAt time.Time `xorm:"'granted_at' notnull default now()"`
 	CreatedAt time.Time `xorm:"'created_at' notnull default now()"`
 }
@@ -57,30 +57,30 @@ type Wallet struct {
 func (Wallet) TableName() string { return "wallets" }
 
 type Streak struct {
-	Id                string     `xorm:"'id' pk uuid"`
-	ExamEnrollmentId  string     `xorm:"'exam_enrollment_id' notnull uuid unique"`
-	UserId            string     `xorm:"'user_id' notnull uuid"`
-	CurrentStreak     int        `xorm:"'current_streak' notnull default 0"`
-	BestStreak        int        `xorm:"'best_streak' notnull default 0"`
-	LastStudyAt       *time.Time `xorm:"'last_study_at'"`
-	Status            string     `xorm:"'status' notnull default 'active'"`
-	CreatedAt         time.Time  `xorm:"'created_at' notnull default now()"`
-	UpdatedAt         time.Time  `xorm:"'updated_at' notnull default now()"`
+	Id               string     `xorm:"'id' pk uuid"`
+	ExamEnrollmentId string     `xorm:"'exam_enrollment_id' notnull uuid unique"`
+	UserId           string     `xorm:"'user_id' notnull uuid"`
+	CurrentStreak    int        `xorm:"'current_streak' notnull default 0"`
+	BestStreak       int        `xorm:"'best_streak' notnull default 0"`
+	LastStudyAt      *time.Time `xorm:"'last_study_at'"`
+	Status           string     `xorm:"'status' notnull default 'active'"`
+	CreatedAt        time.Time  `xorm:"'created_at' notnull default now()"`
+	UpdatedAt        time.Time  `xorm:"'updated_at' notnull default now()"`
 }
 
 func (Streak) TableName() string { return "streaks" }
 
 type VirtualPet struct {
-	Id                string     `xorm:"'id' pk uuid"`
-	ExamEnrollmentId  string     `xorm:"'exam_enrollment_id' notnull uuid unique"`
-	Species           string     `xorm:"'species' notnull"`
-	Level             int        `xorm:"'level' notnull default 1"`
-	Xp                int        `xorm:"'xp' notnull default 0"`
-	EvolutionStage    string     `xorm:"'evolution_stage' notnull"`
-	MoodState         string     `xorm:"'mood_state' notnull"`
-	Status            string     `xorm:"'status' notnull"`
-	LastActiveAt      *time.Time `xorm:"'last_active_at'"`
-	CreatedAt         time.Time  `xorm:"'created_at' notnull default now()"`
+	Id               string     `xorm:"'id' pk uuid"`
+	ExamEnrollmentId string     `xorm:"'exam_enrollment_id' notnull uuid unique"`
+	Species          string     `xorm:"'species' notnull"`
+	Level            int        `xorm:"'level' notnull default 1"`
+	Xp               int        `xorm:"'xp' notnull default 0"`
+	EvolutionStage   string     `xorm:"'evolution_stage' notnull"`
+	MoodState        string     `xorm:"'mood_state' notnull"`
+	Status           string     `xorm:"'status' notnull"`
+	LastActiveAt     *time.Time `xorm:"'last_active_at'"`
+	CreatedAt        time.Time  `xorm:"'created_at' notnull default now()"`
 }
 
 func (VirtualPet) TableName() string { return "virtual_pets" }

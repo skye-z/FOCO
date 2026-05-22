@@ -2,7 +2,9 @@ package content
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -68,6 +70,13 @@ type knowledgeGraphQuestionEdgeRow struct {
 
 func NewRepository(engine *xorm.Engine) *XormRepository {
 	return &XormRepository{engine: engine}
+}
+
+func execBulk(sess *xorm.Session, query string, args []any) (sql.Result, error) {
+	all := make([]interface{}, 0, len(args)+1)
+	all = append(all, query)
+	all = append(all, args...)
+	return sess.Exec(all...)
 }
 
 func (r *XormRepository) GetExamTree(ctx context.Context) ([]ExamTreeNode, error) {
@@ -711,6 +720,8 @@ func (r *XormRepository) ExportContentPackage(ctx context.Context) (*ContentPack
 	return payload, nil
 }
 
+const batchSize = 200
+
 func (r *XormRepository) ImportContentPackage(ctx context.Context, payload *ContentPackagePayload) (*ContentPackageImportReport, error) {
 	sess := r.engine.NewSession().Context(ctx)
 	defer sess.Close()
@@ -719,134 +730,323 @@ func (r *XormRepository) ImportContentPackage(ctx context.Context, payload *Cont
 		return nil, err
 	}
 
-	for _, item := range payload.Exams {
-		if err := upsertByID(sess, &Exam{}, item.Id, item); err != nil {
+	if len(payload.Exams) > 0 {
+		if err := batchUpsertExams(sess, payload.Exams); err != nil {
 			_ = sess.Rollback()
 			return nil, err
 		}
-		report.ExamsImported++
+		report.ExamsImported = len(payload.Exams)
 	}
-	for _, item := range payload.Subjects {
-		if err := upsertByID(sess, &Subject{}, item.Id, item); err != nil {
+	if len(payload.Subjects) > 0 {
+		if err := batchUpsertSubjects(sess, payload.Subjects); err != nil {
 			_ = sess.Rollback()
 			return nil, err
 		}
-		report.SubjectsImported++
+		report.SubjectsImported = len(payload.Subjects)
 	}
-	for _, item := range payload.Chapters {
-		if err := upsertByID(sess, &Chapter{}, item.Id, item); err != nil {
+	if len(payload.Chapters) > 0 {
+		if err := batchUpsertChapters(sess, payload.Chapters); err != nil {
 			_ = sess.Rollback()
 			return nil, err
 		}
-		report.ChaptersImported++
+		report.ChaptersImported = len(payload.Chapters)
 	}
-	for _, item := range payload.KnowledgePoints {
-		if err := upsertByID(sess, &KnowledgePoint{}, item.Id, item); err != nil {
+	if len(payload.KnowledgePoints) > 0 {
+		if err := batchUpsertKnowledgePoints(sess, payload.KnowledgePoints); err != nil {
 			_ = sess.Rollback()
 			return nil, err
 		}
-		report.KnowledgePointsImported++
+		report.KnowledgePointsImported = len(payload.KnowledgePoints)
 	}
-	for _, item := range payload.KnowledgePointEdges {
-		if err := upsertByID(sess, &KnowledgePointEdge{}, item.Id, item); err != nil {
+	if len(payload.KnowledgePointEdges) > 0 {
+		if err := batchUpsertKnowledgePointEdges(sess, payload.KnowledgePointEdges); err != nil {
 			_ = sess.Rollback()
 			return nil, err
 		}
-		report.KnowledgePointEdgesImported++
+		report.KnowledgePointEdgesImported = len(payload.KnowledgePointEdges)
 	}
-	for _, item := range payload.Questions {
-		question := Question{
-			Id:        item.Id,
-			ExamId:    item.ExamId,
-			SubjectId: item.SubjectId,
-			ChapterId: item.ChapterId,
-			Status:    item.Status,
-			CreatedAt: item.CreatedAt,
-			UpdatedAt: item.UpdatedAt,
-		}
-		if err := upsertByID(sess, &Question{}, question.Id, question); err != nil {
+	if len(payload.Questions) > 0 {
+		n, err := batchUpsertQuestions(sess, payload.Questions)
+		if err != nil {
 			_ = sess.Rollback()
 			return nil, err
 		}
-		report.QuestionsImported++
+		report.QuestionsImported = n
+		report.QuestionVersionsImported = n
+		report.QuestionVersionKnowledgePointsImported = countQuestionVersionKP(payload.Questions)
+	}
+	if len(payload.InteractiveUnits) > 0 {
+		units, steps, err := batchUpsertInteractiveUnits(sess, payload.InteractiveUnits)
+		if err != nil {
+			_ = sess.Rollback()
+			return nil, err
+		}
+		report.InteractiveUnitsImported = units
+		report.InteractiveUnitStepsImported = steps
+	}
 
+	if err := sess.Commit(); err != nil {
+		return nil, err
+	}
+	return report, nil
+}
+
+func countQuestionVersionKP(questions []ContentPackageQuestion) int {
+	n := 0
+	for _, q := range questions {
+		n += len(q.KnowledgePointIds)
+	}
+	return n
+}
+
+func batchUpsertExams(sess *xorm.Session, items []Exam) error {
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		batch := items[i:end]
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO exams (id, code, name, status, description, next_exam_date, next_next_exam_date, created_at, updated_at) VALUES `)
+		args := make([]any, 0, len(batch)*9)
+		for j, item := range batch {
+			if j > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("($%d::uuid, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+				j*9+1, j*9+2, j*9+3, j*9+4, j*9+5, j*9+6, j*9+7, j*9+8, j*9+9))
+			args = append(args, item.Id, item.Code, item.Name, item.Status, item.Description, item.NextExamDate, item.NextNextExamDate, item.CreatedAt, item.UpdatedAt)
+		}
+		sb.WriteString(` ON CONFLICT (id) DO UPDATE SET code=EXCLUDED.code, name=EXCLUDED.name, status=EXCLUDED.status, description=EXCLUDED.description, next_exam_date=EXCLUDED.next_exam_date, next_next_exam_date=EXCLUDED.next_next_exam_date, updated_at=EXCLUDED.updated_at`)
+		if _, err := execBulk(sess, sb.String(), args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func batchUpsertSubjects(sess *xorm.Session, items []Subject) error {
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		batch := items[i:end]
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO subjects (id, exam_id, code, name, sort_order, created_at, updated_at) VALUES `)
+		args := make([]any, 0, len(batch)*7)
+		for j, item := range batch {
+			if j > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d, $%d, $%d, $%d)",
+				j*7+1, j*7+2, j*7+3, j*7+4, j*7+5, j*7+6, j*7+7))
+			args = append(args, item.Id, item.ExamId, item.Code, item.Name, item.SortOrder, item.CreatedAt, item.UpdatedAt)
+		}
+		sb.WriteString(` ON CONFLICT (id) DO UPDATE SET exam_id=EXCLUDED.exam_id, code=EXCLUDED.code, name=EXCLUDED.name, sort_order=EXCLUDED.sort_order, updated_at=EXCLUDED.updated_at`)
+		if _, err := execBulk(sess, sb.String(), args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func batchUpsertChapters(sess *xorm.Session, items []Chapter) error {
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		batch := items[i:end]
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO chapters (id, subject_id, code, name, sort_order, created_at, updated_at) VALUES `)
+		args := make([]any, 0, len(batch)*7)
+		for j, item := range batch {
+			if j > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d, $%d, $%d, $%d)",
+				j*7+1, j*7+2, j*7+3, j*7+4, j*7+5, j*7+6, j*7+7))
+			args = append(args, item.Id, item.SubjectId, item.Code, item.Name, item.SortOrder, item.CreatedAt, item.UpdatedAt)
+		}
+		sb.WriteString(` ON CONFLICT (id) DO UPDATE SET subject_id=EXCLUDED.subject_id, code=EXCLUDED.code, name=EXCLUDED.name, sort_order=EXCLUDED.sort_order, updated_at=EXCLUDED.updated_at`)
+		if _, err := execBulk(sess, sb.String(), args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func batchUpsertKnowledgePoints(sess *xorm.Session, items []KnowledgePoint) error {
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		batch := items[i:end]
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO knowledge_points (id, exam_id, code, name, description, status, created_at, updated_at) VALUES `)
+		args := make([]any, 0, len(batch)*8)
+		for j, item := range batch {
+			if j > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d, $%d, $%d, $%d, $%d)",
+				j*8+1, j*8+2, j*8+3, j*8+4, j*8+5, j*8+6, j*8+7, j*8+8))
+			args = append(args, item.Id, item.ExamId, item.Code, item.Name, item.Description, item.Status, item.CreatedAt, item.UpdatedAt)
+		}
+		sb.WriteString(` ON CONFLICT (id) DO UPDATE SET exam_id=EXCLUDED.exam_id, code=EXCLUDED.code, name=EXCLUDED.name, description=EXCLUDED.description, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at`)
+		if _, err := execBulk(sess, sb.String(), args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func batchUpsertKnowledgePointEdges(sess *xorm.Session, items []KnowledgePointEdge) error {
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		batch := items[i:end]
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO knowledge_point_edges (id, exam_id, from_knowledge_point_id, to_knowledge_point_id, edge_type, weight, created_at) VALUES `)
+		args := make([]any, 0, len(batch)*7)
+		for j, item := range batch {
+			if j > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d::uuid, $%d::uuid, $%d, $%d, $%d)",
+				j*7+1, j*7+2, j*7+3, j*7+4, j*7+5, j*7+6, j*7+7))
+			args = append(args, item.Id, item.ExamId, item.FromKnowledgePointId, item.ToKnowledgePointId, item.EdgeType, item.Weight, item.CreatedAt)
+		}
+		sb.WriteString(` ON CONFLICT (id) DO UPDATE SET exam_id=EXCLUDED.exam_id, from_knowledge_point_id=EXCLUDED.from_knowledge_point_id, to_knowledge_point_id=EXCLUDED.to_knowledge_point_id, edge_type=EXCLUDED.edge_type, weight=EXCLUDED.weight`)
+		if _, err := execBulk(sess, sb.String(), args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func batchUpsertQuestions(sess *xorm.Session, items []ContentPackageQuestion) (int, error) {
+	total := len(items)
+	for _, item := range items {
 		versionID := item.CurrentPublishedVersionId
 		if versionID == nil || *versionID == "" {
-			_ = sess.Rollback()
-			return nil, xorm.ErrParamsType
-		}
-		_, err := sess.Exec(`
-			INSERT INTO question_versions (
-				id, question_id, version_no, status, question_type, difficulty,
-				stem, options, correct_answer, explanation,
-				published_at, published_by, publish_note, created_at, updated_at
-			)
-			VALUES (
-				$1::uuid, $2::uuid, $3, 'published', $4, $5,
-				$6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
-				$10, nullif($11, '')::uuid, $12, $13, $14
-			)
-			ON CONFLICT (id) DO UPDATE SET
-				question_id = $2::uuid,
-				version_no = $3,
-				status = 'published',
-				question_type = $4,
-				difficulty = $5,
-				stem = $6::jsonb,
-				options = $7::jsonb,
-				correct_answer = $8::jsonb,
-				explanation = $9::jsonb,
-				published_at = $10,
-				published_by = nullif($11, '')::uuid,
-				publish_note = $12,
-				updated_at = $14
-		`, *versionID, item.Id, item.VersionNo, item.QuestionType, item.Difficulty,
-			item.Stem, nullableJSONText(item.Options), item.CorrectAnswer, item.Explanation,
-			item.PublishedAt, ptrToString(item.PublishedBy), item.PublishNote, item.CreatedAt, item.UpdatedAt)
-		if err != nil {
-			_ = sess.Rollback()
-			return nil, err
-		}
-		report.QuestionVersionsImported++
-
-		_, err = sess.Exec("DELETE FROM question_version_knowledge_points WHERE question_version_id = $1::uuid", *versionID)
-		if err != nil {
-			_ = sess.Rollback()
-			return nil, err
-		}
-		for _, knowledgePointID := range item.KnowledgePointIds {
-			link := QuestionVersionKnowledgePoint{
-				QuestionVersionId: *versionID,
-				KnowledgePointId:  knowledgePointID,
-				CreatedAt:         item.UpdatedAt,
-			}
-			if link.CreatedAt.IsZero() {
-				link.CreatedAt = item.CreatedAt
-			}
-			if link.CreatedAt.IsZero() {
-				link.CreatedAt = time.Now()
-			}
-			if _, err := sess.Insert(&link); err != nil {
-				_ = sess.Rollback()
-				return nil, err
-			}
-			report.QuestionVersionKnowledgePointsImported++
-		}
-
-		_, err = sess.Exec(`
-			UPDATE questions
-			SET current_published_version_id = $1::uuid,
-			    status = $2,
-			    updated_at = $3
-			WHERE id = $4::uuid
-		`, *versionID, item.Status, item.UpdatedAt, item.Id)
-		if err != nil {
-			_ = sess.Rollback()
-			return nil, err
+			return 0, xorm.ErrParamsType
 		}
 	}
 
-	for _, iu := range payload.InteractiveUnits {
+	for i := 0; i < total; i += batchSize {
+		end := i + batchSize
+		if end > total {
+			end = total
+		}
+		batch := items[i:end]
+
+		var qsb strings.Builder
+		qsb.WriteString(`INSERT INTO questions (id, exam_id, subject_id, chapter_id, status, created_at, updated_at) VALUES `)
+		qargs := make([]any, 0, len(batch)*7)
+		for j, item := range batch {
+			if j > 0 {
+				qsb.WriteString(", ")
+			}
+			qsb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d::uuid, $%d::uuid, $%d, $%d, $%d)",
+				j*7+1, j*7+2, j*7+3, j*7+4, j*7+5, j*7+6, j*7+7))
+			qargs = append(qargs, item.Id, item.ExamId, item.SubjectId, item.ChapterId, item.Status, item.CreatedAt, item.UpdatedAt)
+		}
+		qsb.WriteString(` ON CONFLICT (id) DO UPDATE SET exam_id=EXCLUDED.exam_id, subject_id=EXCLUDED.subject_id, chapter_id=EXCLUDED.chapter_id, status=EXCLUDED.status, updated_at=EXCLUDED.updated_at`)
+		if _, err := execBulk(sess, qsb.String(), qargs); err != nil {
+			return 0, err
+		}
+
+		var vsb strings.Builder
+		vsb.WriteString(`INSERT INTO question_versions (id, question_id, version_no, status, question_type, difficulty, stem, options, correct_answer, explanation, published_at, published_by, publish_note, created_at, updated_at) VALUES `)
+		vargs := make([]any, 0, len(batch)*14)
+		for j, item := range batch {
+			if j > 0 {
+				vsb.WriteString(", ")
+			}
+			vid := *item.CurrentPublishedVersionId
+			base := j * 14
+			vsb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, 'published', $%d, $%d, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d, nullif($%d,'')::uuid, $%d, $%d, $%d)",
+				base+1, base+2, base+3, base+4, base+5, base+6, base+7, base+8, base+9, base+10, base+11, base+12, base+13, base+14))
+			vargs = append(vargs, vid, item.Id, item.VersionNo, item.QuestionType, item.Difficulty,
+				item.Stem, nullableJSONText(item.Options), item.CorrectAnswer, item.Explanation,
+				item.PublishedAt, ptrToString(item.PublishedBy), item.PublishNote, item.CreatedAt, item.UpdatedAt)
+		}
+		vsb.WriteString(` ON CONFLICT (id) DO UPDATE SET question_id=EXCLUDED.question_id, version_no=EXCLUDED.version_no, status='published', question_type=EXCLUDED.question_type, difficulty=EXCLUDED.difficulty, stem=EXCLUDED.stem, options=EXCLUDED.options, correct_answer=EXCLUDED.correct_answer, explanation=EXCLUDED.explanation, published_at=EXCLUDED.published_at, published_by=EXCLUDED.published_by, publish_note=EXCLUDED.publish_note, updated_at=EXCLUDED.updated_at`)
+		if _, err := execBulk(sess, vsb.String(), vargs); err != nil {
+			return 0, err
+		}
+
+		var kpIDs []string
+		var kpVersionIDs []string
+		var kpCreatedAt []time.Time
+		for _, item := range batch {
+			vid := *item.CurrentPublishedVersionId
+			_, _ = sess.Exec("DELETE FROM question_version_knowledge_points WHERE question_version_id = $1::uuid", vid)
+			createdAt := item.UpdatedAt
+			if createdAt.IsZero() {
+				createdAt = item.CreatedAt
+			}
+			if createdAt.IsZero() {
+				createdAt = time.Now()
+			}
+			for _, kpid := range item.KnowledgePointIds {
+				kpVersionIDs = append(kpVersionIDs, vid)
+				kpIDs = append(kpIDs, kpid)
+				kpCreatedAt = append(kpCreatedAt, createdAt)
+			}
+		}
+		if len(kpIDs) > 0 {
+			for k := 0; k < len(kpIDs); k += batchSize {
+				kend := k + batchSize
+				if kend > len(kpIDs) {
+					kend = len(kpIDs)
+				}
+				var ksb strings.Builder
+				ksb.WriteString(`INSERT INTO question_version_knowledge_points (question_version_id, knowledge_point_id, created_at) VALUES `)
+				kargs := make([]any, 0, (kend-k)*3)
+				for m := k; m < kend; m++ {
+					if m > k {
+						ksb.WriteString(", ")
+					}
+					idx := m - k
+					ksb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d)", idx*3+1, idx*3+2, idx*3+3))
+					kargs = append(kargs, kpVersionIDs[m], kpIDs[m], kpCreatedAt[m])
+				}
+				ksb.WriteString(` ON CONFLICT DO NOTHING`)
+				if _, err := execBulk(sess, ksb.String(), kargs); err != nil {
+					return 0, err
+				}
+			}
+		}
+
+		var usb strings.Builder
+		usb.WriteString(`UPDATE questions SET current_published_version_id = v.id, status = v.status, updated_at = v.updated_at FROM (VALUES `)
+		uargs := make([]any, 0, len(batch)*4)
+		for j, item := range batch {
+			if j > 0 {
+				usb.WriteString(", ")
+			}
+			usb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d)", j*4+1, j*4+2, j*4+3, j*4+4))
+			uargs = append(uargs, *item.CurrentPublishedVersionId, item.Id, item.Status, item.UpdatedAt)
+		}
+		usb.WriteString(`) AS v(id, qid, status, updated_at) WHERE questions.id = v.qid::uuid`)
+		if _, err := execBulk(sess, usb.String(), uargs); err != nil {
+			return 0, err
+		}
+	}
+	return total, nil
+}
+
+func batchUpsertInteractiveUnits(sess *xorm.Session, items []ContentPackageInteractiveUnit) (int, int, error) {
+	totalUnits := 0
+	totalSteps := 0
+
+	for _, iu := range items {
 		targetUnitID := iu.ID
 		var existingUnit struct {
 			ID string `xorm:"id"`
@@ -861,8 +1061,7 @@ func (r *XormRepository) ImportContentPackage(ctx context.Context, payload *Cont
 			LIMIT 1
 		`, iu.ExamID, iu.SubjectID, iu.Title).Get(&existingUnit)
 		if err != nil {
-			_ = sess.Rollback()
-			return nil, err
+			return 0, 0, err
 		}
 		if hasExistingUnit && existingUnit.ID != "" {
 			targetUnitID = existingUnit.ID
@@ -873,10 +1072,9 @@ func (r *XormRepository) ImportContentPackage(ctx context.Context, payload *Cont
 			ON CONFLICT (id) DO UPDATE SET exam_id=$2, subject_id=nullif($3,'')::uuid, title=$4, status=$5, updated_at=$7`,
 			targetUnitID, iu.ExamID, iu.SubjectID, iu.Title, iu.Status, iu.CreatedAt, iu.UpdatedAt)
 		if err != nil {
-			_ = sess.Rollback()
-			return nil, err
+			return 0, 0, err
 		}
-		report.InteractiveUnitsImported++
+		totalUnits++
 
 		versionMetadata := "{}"
 		if iu.Title != "" {
@@ -893,23 +1091,28 @@ func (r *XormRepository) ImportContentPackage(ctx context.Context, payload *Cont
 		}
 
 		_, _ = sess.Exec(`DELETE FROM interactive_unit_version_steps WHERE unit_version_id=$1::uuid`, iu.VersionID)
-		for _, step := range iu.Steps {
-			_, err := sess.Exec(`INSERT INTO interactive_unit_version_steps (id, unit_version_id, step_no, widget_type, content, initial_state, allowed_actions, evaluation_config, feedback_map, hint_policy, knowledge_point_ids, knowledge_point_tags, created_at)
-				VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, now())
-				ON CONFLICT (id) DO UPDATE SET step_no=$3, widget_type=$4, content=$5::jsonb, initial_state=$6::jsonb, allowed_actions=$7::jsonb, evaluation_config=$8::jsonb, feedback_map=$9::jsonb, hint_policy=$10::jsonb, knowledge_point_ids=$11::jsonb, knowledge_point_tags=$12::jsonb`,
-				step.ID, iu.VersionID, step.StepNo, step.WidgetType, step.Content, step.InitialState, step.AllowedActions, step.EvaluationConfig, step.FeedbackMap, step.HintPolicy, step.KnowledgePointIDs, step.KnowledgePointTags)
-			if err != nil {
-				_ = sess.Rollback()
-				return nil, err
+
+		if len(iu.Steps) > 0 {
+			var ssb strings.Builder
+			ssb.WriteString(`INSERT INTO interactive_unit_version_steps (id, unit_version_id, step_no, widget_type, content, initial_state, allowed_actions, evaluation_config, feedback_map, hint_policy, knowledge_point_ids, knowledge_point_tags, created_at) VALUES `)
+			sargs := make([]any, 0, len(iu.Steps)*12)
+			for k, step := range iu.Steps {
+				if k > 0 {
+					ssb.WriteString(", ")
+				}
+				base := k * 12
+				ssb.WriteString(fmt.Sprintf("($%d::uuid, $%d::uuid, $%d, $%d, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d::jsonb, $%d::jsonb, now())",
+					base+1, base+2, base+3, base+4, base+5, base+6, base+7, base+8, base+9, base+10, base+11, base+12))
+				sargs = append(sargs, step.ID, iu.VersionID, step.StepNo, step.WidgetType, step.Content, step.InitialState, step.AllowedActions, step.EvaluationConfig, step.FeedbackMap, step.HintPolicy, step.KnowledgePointIDs, step.KnowledgePointTags)
 			}
-			report.InteractiveUnitStepsImported++
+			ssb.WriteString(` ON CONFLICT (id) DO UPDATE SET step_no=EXCLUDED.step_no, widget_type=EXCLUDED.widget_type, content=EXCLUDED.content, initial_state=EXCLUDED.initial_state, allowed_actions=EXCLUDED.allowed_actions, evaluation_config=EXCLUDED.evaluation_config, feedback_map=EXCLUDED.feedback_map, hint_policy=EXCLUDED.hint_policy, knowledge_point_ids=EXCLUDED.knowledge_point_ids, knowledge_point_tags=EXCLUDED.knowledge_point_tags`)
+			if _, err := execBulk(sess, ssb.String(), sargs); err != nil {
+				return 0, 0, err
+			}
+			totalSteps += len(iu.Steps)
 		}
 	}
-
-	if err := sess.Commit(); err != nil {
-		return nil, err
-	}
-	return report, nil
+	return totalUnits, totalSteps, nil
 }
 
 func (r *XormRepository) exportPublishedContentPackageQuestions(ctx context.Context) ([]ContentPackageQuestion, error) {

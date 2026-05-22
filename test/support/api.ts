@@ -44,7 +44,10 @@ export function resetDataIfConfigured() {
   execSync(e2eConfig.resetCommand, {
     cwd: process.cwd(),
     stdio: "inherit",
-    shell: "/bin/zsh",
+    shell:
+      process.platform === "win32"
+        ? process.env.ComSpec ?? "cmd.exe"
+        : process.env.SHELL ?? "/bin/sh",
     env: process.env,
   })
 }

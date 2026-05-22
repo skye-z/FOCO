@@ -112,5 +112,5 @@ func NewRouter(deps Dependencies) http.Handler {
 
 	mux.HandleFunc("POST /api/v1/seed/chinese", deps.SeedChinese)
 
-	return middleware.CORSMiddleware(mux)
+	return middleware.SecurityHeadersMiddleware(middleware.CORSMiddleware(middleware.RateLimitMiddleware(mux)))
 }

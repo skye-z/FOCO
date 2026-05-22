@@ -20,12 +20,12 @@ Run production frontend services before testing:
 
 ```bash
 # admin
-cd /Users/zhaoguiyang/Desktop/Workspace/AI/FOCO/confirmed/frontend/admin
-/Users/zhaoguiyang/.nvm/versions/node/v20.12.0/bin/node node_modules/next/dist/bin/next start -p 3001
+cd frontend/admin
+node node_modules/next/dist/bin/next start -p 3001
 
 # learner
-cd /Users/zhaoguiyang/Desktop/Workspace/AI/FOCO/confirmed/frontend/learner
-/Users/zhaoguiyang/.nvm/versions/node/v20.12.0/bin/node node_modules/next/dist/bin/next start -p 3000
+cd frontend/learner
+node node_modules/next/dist/bin/next start -p 3000
 ```
 
 Run the backend API on `http://localhost:8080`.
@@ -33,7 +33,7 @@ Run the backend API on `http://localhost:8080`.
 ## Install
 
 ```bash
-cd /Users/zhaoguiyang/Desktop/Workspace/AI/FOCO/confirmed/test
+cd test
 npm install
 npm run check
 npm run typecheck
@@ -42,11 +42,12 @@ npm run typecheck
 ## Run
 
 ```bash
-cd /Users/zhaoguiyang/Desktop/Workspace/AI/FOCO/confirmed/test
+cd test
 npm run test:e2e
 ```
 
 The test uses Microsoft Edge by default through Playwright `channel: msedge`.
+`npm run check`、`npm run typecheck` 和 `npm run test:e2e*` 都已改为直接使用 Node，可在 Windows / macOS / Linux 运行；不再依赖 `bash` 或 `/bin/zsh`。
 
 ## Environment Variables
 
@@ -74,7 +75,7 @@ npm run test:e2e
 
 ## Outputs
 
-- HTML test report: `confirmed/test/artifacts/html-report/index.html`
-- JSON test report: `confirmed/test/artifacts/results.json`
-- Video recordings: `confirmed/test/artifacts/test-results/**/video.webm`
-- Failure screenshots and traces: `confirmed/test/artifacts/test-results/**`
+- HTML test report: `test/artifacts/html-report/index.html`
+- JSON test report: `test/artifacts/results.json`
+- Video recordings: `test/artifacts/test-results/**/video.webm`
+- Failure screenshots and traces: `test/artifacts/test-results/**`

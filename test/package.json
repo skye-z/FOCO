@@ -1,0 +1,18 @@
+{
+  "name": "foco-delivery-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bash ./scripts/node20.sh ./scripts/check-runtime.mjs",
+    "typecheck": "bash ./scripts/node20.sh ./node_modules/typescript/bin/tsc --noEmit",
+    "test:e2e": "bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js test --project=edge",
+    "test:e2e:headed": "E2E_HEADLESS=0 bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js test --project=edge",
+    "test:e2e:headless": "E2E_HEADLESS=1 bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js test --project=edge",
+    "report": "bash ./scripts/node20.sh ./node_modules/@playwright/test/cli.js show-report artifacts/html-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^22.15.29",
+    "typescript": "^5.8.3"
+  }
+}

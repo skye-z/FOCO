@@ -1,0 +1,280 @@
+{
+  "info": {
+    "name": "FOCO API",
+    "description": "FOCO delivery API collection",
+    "_postman_id": "3f4d8f3f-7d3a-4f4f-8b33-8c7fd87d4f00",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "examId", "value": "73000000-0000-0000-0000-000000000101" },
+    { "key": "questionId", "value": "" },
+    { "key": "versionId", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "itemId", "value": "" },
+    { "key": "unitVersionId", "value": "" },
+    { "key": "subjectId", "value": "" },
+    { "key": "attemptId", "value": "" },
+    { "key": "stepId", "value": "" },
+    { "key": "userId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/health"
+          }
+        },
+        {
+          "name": "Public Settings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/public/settings"
+          }
+        },
+        {
+          "name": "Seed Admin",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/seed/admin"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Learner",
+      "item": [
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/me"
+          }
+        },
+        {
+          "name": "Home",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/home?exam_id={{examId}}"
+          }
+        },
+        {
+          "name": "Practice Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_id\": \"{{examId}}\",\n  \"mode\": \"intelligent\",\n  \"question_types\": [\"single_choice\", \"multiple_choice\"],\n  \"difficulty\": \"medium\",\n  \"count\": 15,\n  \"subject_ids\": [],\n  \"chapter_ids\": [],\n  \"knowledge_point_ids\": []\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/learner/practice-sessions"
+          }
+        },
+        {
+          "name": "Practice Session",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/practice-sessions/{{sessionId}}"
+          }
+        },
+        {
+          "name": "Practice Submit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer\": [\"A\"],\n  \"duration_seconds\": 38\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/learner/practice-sessions/{{sessionId}}/items/{{itemId}}/submit"
+          }
+        },
+        {
+          "name": "Wrong Book",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/wrong-book?exam_id={{examId}}"
+          }
+        },
+        {
+          "name": "Interactive Units",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/interactive-units"
+          }
+        },
+        {
+          "name": "Interactive Unit Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/interactive-units/{{unitVersionId}}"
+          }
+        },
+        {
+          "name": "Interactive Start",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/interactive-units/{{unitVersionId}}/attempts"
+          }
+        },
+        {
+          "name": "Interactive Step Action",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"selected\": [\"A\", \"C\"],\n  \"reason\": \"step action\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/learner/interactive-unit-attempts/{{attemptId}}/steps/{{stepId}}/actions"
+          }
+        },
+        {
+          "name": "Interactive Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/interactive-unit-attempts/{{attemptId}}/complete"
+          }
+        },
+        {
+          "name": "Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/profile?exam_id={{examId}}"
+          }
+        },
+        {
+          "name": "Diagnostic Current",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/learner/diagnostic/current?exam_id={{examId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/stats"
+          }
+        },
+        {
+          "name": "Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/settings"
+          }
+        },
+        {
+          "name": "Exam Tree",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/exam-tree"
+          }
+        },
+        {
+          "name": "Questions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/questions?exam_id={{examId}}"
+          }
+        },
+        {
+          "name": "Question Versions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/questions/{{questionId}}/versions"
+          }
+        },
+        {
+          "name": "Interactive Units",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/interactive-units?exam_id={{examId}}"
+          }
+        },
+        {
+          "name": "Interactive Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_id\": \"{{examId}}\",\n  \"subject_id\": \"{{subjectId}}\",\n  \"title\": \"示例交互单元\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/interactive-units"
+          }
+        }
+      ]
+    }
+  ]
+}

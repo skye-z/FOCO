@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: #ffffff;
+  --surface-soft: #f3f4f0;
+  --surface-strong: #edeeea;
+  --text-main: #1a1c1a;
+  --text-muted: #414942;
+  --primary: #063820;
+  --primary-foreground: #ffffff;
+  --secondary: #00a859;
+  --secondary-foreground: #ffffff;
+  --accent: #f3f4f0;
+  --accent-foreground: #1a1c1a;
+  --muted: #f3f4f0;
+  --muted-foreground: #414942;
+  --outline: #717972;
+  --outline-variant: #c1c9c0;
+  --border: var(--outline-variant);
+  --input: var(--outline-variant);
+  --ring: var(--secondary);
+  --background: var(--surface);
+  --foreground: var(--text-main);
+  --card: var(--surface);
+  --card-foreground: var(--text-main);
+  --popover: var(--surface);
+  --popover-foreground: var(--text-main);
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1c1a;
+  --sidebar-primary: #063820;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3f4f0;
+  --sidebar-accent-foreground: #063820;
+  --sidebar-border: #e2e3df;
+  --sidebar-ring: #00a859;
+  --font-heading: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius: 1rem;
+  --radius-md: 1rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: #f9faf5;
+  --surface-dim: #d9dad6;
+  --surface-bright: #f9faf5;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f3f4f0;
+  --surface-container: #edeeea;
+  --surface-container-high: #e7e9e4;
+  --surface-container-highest: #e2e3df;
+  --surface-variant: #e2e3df;
+  --surface-white: #ffffff;
+  --text-main: #1a1c1a;
+  --text-muted: #757575;
+  --on-surface: #1a1c1a;
+  --on-surface-variant: #414942;
+  --primary: #063820;
+  --primary-deep: #063820;
+  --primary-container: #063820;
+  --primary-foreground: #ffffff;
+  --secondary: #006d38;
+  --secondary-green: #00a859;
+  --secondary-foreground: #ffffff;
+  --secondary-container: #74f9a0;
+  --secondary-fixed: #77fca3;
+  --secondary-fixed-dim: #59df89;
+  --tertiary: #1e1b15;
+  --tertiary-container: #333029;
+  --tertiary-fixed: #e8e2d8;
+  --tertiary-fixed-dim: #ccc6bc;
+  --outline: #717972;
+  --outline-variant: #c1c9c0;
+  --sand-dark: #e5dccf;
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --font-heading: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --container-max-width: 1280px;
+  --margin-desktop: 40px;
+  --margin-mobile: 20px;
+  --gutter: 24px;
+  --radius: 1rem;
+  --radius-md: 1rem;
+  --background: var(--surface);
+  --foreground: var(--text-main);
+  --card: var(--surface-white);
+  --card-foreground: var(--text-main);
+  --popover: var(--surface-white);
+  --popover-foreground: var(--text-main);
+  --muted: var(--surface-container-low);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-container-high);
+  --accent-foreground: var(--text-main);
+  --border: var(--outline-variant);
+  --input: var(--outline-variant);
+  --ring: var(--secondary);
+  --destructive: var(--error);
+  --destructive-foreground: #ffffff;
+  --sidebar: var(--primary-container);
+  --sidebar-foreground: #73a383;
+  --sidebar-primary: var(--secondary-green);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: var(--secondary-fixed);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

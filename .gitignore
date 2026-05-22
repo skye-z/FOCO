@@ -4,5 +4,6 @@ node_modules/
 dist/
 build/
 coverage/
+.worktrees/
 *.log
 .env
